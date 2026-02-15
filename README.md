@@ -6,13 +6,21 @@ Note: this research is still a work in progress and aims to be completed by mid-
 
 Many modern large language models (LLMs) contain billions of parameters. Due to its size, running inference using large models such as LLaMA 3.1 405B and Qwen2-72B may not be feasible with a single node, necessitating sharding across multiple nodes. This project aims to create a distributed inference system using open-weight models by partitioning the model layers across distributed nodes. The method proposed is distributed model parallelism. The core idea is to take a transformer-based model and split its layers across multiple machines.
 
-![Neural network layer partitioning](./assets/layer-partitioning.svg)
-*Figure 1: Neural network layer partitioning*
+<p align="center">
+  <img src="./assets/layer-partitioning.svg" width="500">
+</p>
+<p align="center">
+  <sub><b>Figure 1:</b> Neural network layer partitioning</sub>
+</p>
 
 Each node runs its chunk of the model on the input activations and then ships the resulting tensor to the next node. Multiple tokens can be in different pipeline stages at once. This setup will theoretically allow fitting larger models with smaller machines and increase overall throughput.
 
-![Parallel token processing](./assets/parallel-processing.svg)
-*Figure 2: Parallel token processing*
+<p align="center">
+  <img src="./assets/parallel-processing.svg" width="500">
+</p>
+<p align="center">
+  <sub><b>Figure 1:</b> Parallel token processing</sub>
+</p>
 
 The primary goals of this study are to learn how to create such a system from scratch and benchmark the performance, scalability, and its trade-offs. Due to its distributed nature, the primary penalty is the latency caused by communication overhead between nodes. In addition, challenges arise from scheduling complexity, fault tolerance, straggler (slow) nodes, error propagation, and debugging.
 
