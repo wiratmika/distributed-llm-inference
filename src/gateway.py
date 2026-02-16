@@ -16,10 +16,10 @@ from typing import List, Optional
 import httpx
 import torch
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 from transformers import AutoTokenizer
 
 from .helpers import _b64_to_tensor
+from .schemas import GenerateRequest, GenerateResponse
 
 logger = logging.getLogger(__name__)
 
@@ -34,24 +34,16 @@ http_client: Optional[httpx.AsyncClient] = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global tokenizer, http_client
+
     logger.info("Gateway starting – model=%s, worker=%s", MODEL_NAME, WORKER_URL)
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     http_client = httpx.AsyncClient(timeout=httpx.Timeout(300.0))
+
     yield
     await http_client.aclose()
 
 
 app = FastAPI(title="Distributed LLM Gateway", lifespan=lifespan)
-
-
-class GenerateRequest(BaseModel):
-    prompt: str
-
-
-class GenerateResponse(BaseModel):
-    output: str
-    elapsed_ms: float
-
 
 async def _pipeline_forward(input_ids: List[List[int]]) -> torch.Tensor:
     payload = {"input_ids": input_ids}
@@ -101,9 +93,9 @@ async def generate_tokens(prompt: str) -> str:
 
 @app.post("/generate", response_model=GenerateResponse)
 async def generate(req: GenerateRequest):
-    t0 = time.perf_counter()
+    time_start = time.perf_counter()
     output = await generate_tokens(req.prompt)
-    elapsed = (time.perf_counter() - t0) * 1000
+    elapsed = (time.perf_counter() - time_start) * 1000
 
     return GenerateResponse(
         output=output,
