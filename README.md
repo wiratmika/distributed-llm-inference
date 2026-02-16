@@ -39,16 +39,38 @@ Inter-process communications is using HTTP as the overhead is extremely small co
 3. Install dependencies `poetry install --no-root`
 4. Run `./launch_local.sh`
 
-### Sending Request
+### Sending request
 ```
 curl -X POST http://localhost:8000/generate \
      -H 'Content-Type: application/json' \
      -d '{"prompt": "Hello world!"}'
 ```
 
-### Configure Model and Worker Nodes
+### Configure model and worker nodes
 ```
 ./launch_local.sh              # default: 3 worker nodes, gpt2 model
 ./launch_local.sh 4            # 4 worker nodes
 ./launch_local.sh 2 gpt2-xl    # 2 nodes, gpt2-xl model
 ```
+
+## Planned Research Variables
+
+### Number of nodes
+1: Baseline (no distribution)
+2: Simple split
+3: Balanced split (primary configuration)
+4: Finer granularity
+
+### Input sequence length
+16: Very short - minimal communication overhead
+64: Short conversation
+128: Medium (primary benchmark length)
+256: Long paragraph
+512: Very long
+1024: Maximum for GPT-2
+
+### Batch size
+1: Single request (baseline - no pipeline benefit)
+4: Small batch - some pipeline filling
+8: Medium batch (primary benchmark size)
+16: Large batch - good pipeline utilization

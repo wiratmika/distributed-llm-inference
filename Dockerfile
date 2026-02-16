@@ -10,10 +10,11 @@ RUN poetry config virtualenvs.create false
 COPY pyproject.toml poetry.lock ./
 RUN poetry install --no-root --no-interaction --no-ansi
 
+ARG MODEL_NAME=gpt2
 RUN python -c "\
 from transformers import AutoModelForCausalLM, AutoTokenizer; \
-AutoModelForCausalLM.from_pretrained('gpt2'); \
-AutoTokenizer.from_pretrained('gpt2'); \"
+AutoModelForCausalLM.from_pretrained('${MODEL_NAME}'); \
+AutoTokenizer.from_pretrained('${MODEL_NAME}');"
 
 COPY src/ ./src/
 
