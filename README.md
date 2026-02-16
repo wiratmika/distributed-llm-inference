@@ -1,6 +1,6 @@
 # Distributed LLM Inference Experiment
 
-Note: this research is still a work in progress and aims to be completed by mid-March 2026.
+This research is still a work in progress and aims to be completed by early March 2026. The proof of concept works locally using GPT-2 Small, and the next step is to create and run benchmarks on public cloud VMs.
 
 ## Background
 
