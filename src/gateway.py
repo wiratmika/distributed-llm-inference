@@ -3,7 +3,7 @@
 1. Tokenises the user's prompt.
 2. Iteratively sends token IDs (first step) or updated token IDs (subsequent steps) to worker rank 0 via its /forward endpoint.
 3. Worker rank 0 propagates through the pipeline and the last worker returns logits.
-4. The gateway samples / greedy-decodes the next token from those logits, appends it, and repeats until max_new_tokens or EOS.
+4. The gateway greedy-decodes the next token from those logits, appends it, and repeats until max_new_tokens or EOS.
 5. Returns the decoded text to the user.
 """
 
