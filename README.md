@@ -10,16 +10,16 @@ Many modern large language models (LLMs) contain billions of parameters. Due to 
   <img src="./assets/layer-partitioning.svg" width="500">
 </p>
 <p align="center">
-  <sub><b>Figure 1:</b> Neural network layer partitioning</sub>
+  <sub><b>Figure 1:</b> Neural network layer partitioning.</sub>
 </p>
 
-Each node runs its chunk of the model on the input activations and then ships the resulting tensor to the next node. Multiple tokens can be in different pipeline stages at once. This setup will theoretically allow fitting larger models with smaller machines and increase overall throughput.
+Each node runs its chunk of the model on the input activations from a microbatch and then passes the resulting activation tensor to the next node. Multiple microbatches can be processed concurrently in different pipeline stages, allowing the model to be efficiently split across smaller machines and increasing overall throughput.
 
 <p align="center">
   <img src="./assets/parallel-processing.svg" width="500">
 </p>
 <p align="center">
-  <sub><b>Figure 1:</b> Parallel token processing</sub>
+  <sub><b>Figure 2:</b> Pipeline parallelism. Each microbatch is represented internally as a tensor of activations flowing between pipeline stages.</sub>
 </p>
 
 The primary goals of this study are to learn how to create such a system from scratch and benchmark the performance, scalability, and its trade-offs. Due to its distributed nature, the primary penalty is the latency caused by communication overhead between nodes. In addition, challenges arise from scheduling complexity, fault tolerance, straggler (slow) nodes, error propagation, and debugging.
@@ -80,6 +80,6 @@ Since layers of both GPT-2 Small and GPT-2 XL can be evenly divided by those num
 ### Fixed variables
 - Max new tokens: 50
 - No sampling for deterministic result
-- Inference mode
+- Torch running on inference mode
 - Warmup runs: 3
 - Measurement runs: 5
