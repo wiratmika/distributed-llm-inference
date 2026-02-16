@@ -56,21 +56,30 @@ curl -X POST http://localhost:8000/generate \
 ## Planned Research Variables
 
 ### Number of nodes
-1: Baseline (no distribution)
-2: Simple split
-3: Balanced split (primary configuration)
-4: Finer granularity
+- 1 (baseline)
+- 2 
+- 3 (primary configuration)
+- 4
+
+Since layers of both GPT-2 Small and GPT-2 XL can be evenly divided by those numbers, the number of layers for each node will be the same.
 
 ### Input sequence length
-16: Very short - minimal communication overhead
-64: Short conversation
-128: Medium (primary benchmark length)
-256: Long paragraph
-512: Very long
-1024: Maximum for GPT-2
+- 16
+- 64
+- 128 (primary benchmark length)
+- 256
+- 512
+- 1024 (maximum for GPT-2)
 
 ### Batch size
-1: Single request (baseline - no pipeline benefit)
-4: Small batch - some pipeline filling
-8: Medium batch (primary benchmark size)
-16: Large batch - good pipeline utilization
+- 1 (single request, baseline)
+- 4
+- 8 (primary benchmark size)
+- 16
+
+### Fixed variables
+- Max new tokens: 50
+- No sampling, for deterministic result
+- Inference mode
+- Warmup runs: 3
+- Measurement runs: 5
