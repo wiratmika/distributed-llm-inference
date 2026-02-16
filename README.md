@@ -79,7 +79,7 @@ Since layers of both GPT-2 Small and GPT-2 XL can be evenly divided by those num
 
 ### Fixed variables
 - Max new tokens: 50
-- No sampling, for deterministic result
+- No sampling for deterministic result
 - Inference mode
 - Warmup runs: 3
 - Measurement runs: 5
