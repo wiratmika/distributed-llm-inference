@@ -41,7 +41,7 @@ for (( rank = NUM_NODES - 1; rank >= 0; rank-- )); do
     NUM_NODES="$NUM_NODES" \
     RANK="$rank" \
     NEXT_NODE_URL="$next_url" \
-        uvicorn src.worker:app --port "$port" --log-level info &
+        uvicorn inference.worker:app --port "$port" --log-level info &
     PIDS+=($!)
 
     sleep 1
@@ -52,7 +52,7 @@ echo "Starting gateway on port=$GATEWAY_PORT (worker=http://localhost:$WORKER_BA
 
 MODEL_NAME="$MODEL_NAME" \
 WORKER_URL="http://localhost:$WORKER_BASE_PORT" \
-    uvicorn src.gateway:app --port "$GATEWAY_PORT" --log-level info &
+    uvicorn inference.gateway:app --port "$GATEWAY_PORT" --log-level info &
 PIDS+=($!)
 
 echo "All nodes started"

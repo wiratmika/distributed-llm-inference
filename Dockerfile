@@ -16,7 +16,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer; \
 AutoModelForCausalLM.from_pretrained('${MODEL_NAME}'); \
 AutoTokenizer.from_pretrained('${MODEL_NAME}');"
 
-COPY src/ ./src/
+COPY inference/ ./inference/
 
 # To be replaced by Docker Compose
-CMD ["python", "src/gateway.py"]
+CMD ["uvicorn", "inference.gateway:app", "--host", "0.0.0.0", "--port", "8000"]
