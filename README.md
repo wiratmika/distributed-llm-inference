@@ -34,10 +34,11 @@ Inter-process communications is using HTTP as the overhead is extremely small co
 
 ## Local Installation
 
-1. Use Python 3.11 as it provides universal compatibility; pyenv is recommended.
+1. Use Python 3.11 as it provides universal compatibility; pyenv is recommended
 2. Install Poetry `pipx install poetry`
 3. Install dependencies `poetry install --no-root`
-4. Run `./launch_local.sh`
+4. Run `./launch_local.sh` to launch gateway and worker nodes
+5. Run `benchmark-dashboard` to optionally launch benchmarking dashboard
 
 ### Sending request
 ```
@@ -56,30 +57,100 @@ curl -X POST http://localhost:8000/generate \
 ## Planned Research Variables
 
 ### Number of nodes
-- 1 (baseline)
-- 2 
-- 3 (primary configuration)
-- 4
+1, 2, 4
 
-Since layers of both GPT-2 Small and GPT-2 XL can be evenly divided by those numbers, the number of layers for each node will be the same.
+Powers of 2 make it easy to reason about halving compute per node. Since layers of both GPT-2 Small and GPT-2 XL can be evenly divided by those numbers, the number of layers for each node will be the same.
 
 ### Input sequence length
-- 16
-- 64
-- 128 (primary benchmark length)
-- 256
-- 512
-- 1024 (maximum for GPT-2)
+32, 256, 1024
 
-### Batch size
-- 1 (single request, baseline)
-- 4
-- 8 (primary benchmark size)
-- 16
+Affects prefill cost and KV cache size.
+
+### Concurrent clients
+1, 4, 16
+
+Simulates real traffic.
 
 ### Fixed variables
-- Max new tokens: 50
-- No sampling for deterministic result
-- Torch running on inference mode
-- Warmup runs: 3
-- Measurement runs: 5
+- Model: gpt2-xl (1.5B params, 48 layers)
+- Generation length: 50 tokens, enough to capture autoregressive steady-state behavior without making runs long
+- Sampling: Greedy (argmax) for deterministic result
+- Planned VM: GCP `e2-standard-4` (4 vCPU, 16 GB RAM), enough vCPU for GPT-2 XL inference and RAM for model, activations, KV cache, and other overheads
+- Network topology: Same availability zone to minimize network variance
+- Torch: Running on inference mode with fixed 4 number of threads
+- Warmup runs: 3 (discarded)
+- Measurement runs: 20 (median, p95)
+
+## Planned Metrics
+- End-to-end latency: Wall clock from request sent to response received at the client
+- Time to first token: Timestamp of first token minus request start
+- Tokens per second: `generated_tokens / end_to_end_time` for single client; `total_tokens_across_all_clients / wall_clock` for concurrent
+- Per-node memory (RSS): `psutil` or `/proc/self/status` to measure peak RSS on each worker, validating whether sharding reduces memory
+- Serialization time: Time to serialize/deserialize tensors, as it could be a hidden bottleneck
+- Network transfer time per hop: Time from worker N finishing compute to worker N+1 starting compute
+- Compute time per stage: Time each worker spends in `model.forward()`
+- Stage idle time: Time each worker spends waiting (not computing, not transferring)
+
+## Experiment Design
+
+### Experiment 1 — Scaling
+Question: At what point does adding nodes help or hurt latency?
+
+#### Parameter Values
+- Nodes: 1, 2, 4, 8
+- Input length: 32, 256, 1024
+- Concurrent clients: 1
+
+### Output
+- Plot: Latency (p50, p95) vs. nodes, one line per input length
+- Expected: Short input (32) multi-node is always slower. Long input (1024) multi-node eventually wins.
+
+### Experiment 2 — Time breakdown
+Question: What fraction of wall-clock time is compute vs. serialization vs. network transfer vs. idle?
+
+#### Parameter Values
+- Nodes: 1, 2, 4, 8
+- Input length: 256
+- Concurrent clients: 1
+
+### Output
+- Plot: Stacked bar chart, compute / serialization / network / idle per node count
+- Measured on: GCP nodes via instrumentation in `worker.py` and `gateway.py`
+
+### Experiment 3 — Concurrency
+Question: Does pipeline parallelism actually utilize idle stages when multiple requests arrive concurrently?
+
+#### Parameter Values
+- Nodes: 1, 2, 4, 8
+- Input length: 256
+- Concurrent clients: 1, 4, 16
+
+### Output
+- Plot: Throughput (total tokens/sec) vs. nodes, one line per concurrency level
+- Expected: With 1 client, adding nodes hurts throughput. With 16 clients, adding nodes should improve throughput because pipeline stages overlap across requests.
+
+### Experiment 4 — Input sensitivity
+Question: How does input length affect the distribution trade-off?
+
+#### Parameter Values
+- Nodes: 1, 2, 4, 8
+- Input length: 32, 256, 1024
+- Concurrent clients: 1
+
+### Output
+- Plot: TTFT vs. input length, one line per node count
+- Purpose: Prefill is a single compute-heavy pass. Longer input results in larger activation tensors but also more compute per stage. This reveals the compute-to-communication ratio.
+- Note: This reuses Experiment 1 data with a different metric (TTFT instead of end-to-end latency).
+
+### Experiment 5 — Memory
+Question: Does sharding actually reduce per-node memory?
+
+#### Parameter Values
+- Nodes: 1, 2, 4, 8
+- Input length: 1024
+- Concurrent clients: 1
+
+### Output
+- Plot: Peak RSS per node vs. node count
+- Expected: Roughly linear decrease. Single node ~6 GB, 8 nodes ~0.75 GB each.
+- Measured on: Each GCP VM via `psutil.Process().memory_info().rss`
