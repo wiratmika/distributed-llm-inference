@@ -54,6 +54,23 @@ curl -X POST http://localhost:8000/generate \
 ./launch_local.sh 2 gpt2-xl    # 2 nodes, gpt2-xl model
 ```
 
+## Running benchmarks
+
+The benchmark runner script can be invoked either from the CLI or programmatically. `GATEWAY_URL` environment variable defaults to `http://localhost:8000`.
+
+CLI:
+```sh
+python -m benchmark.runner --gateway-url http://localhost:8000 --experiment 1
+```
+
+Programmatically:
+```python
+from benchmark.runner import run_config
+result = run_config(url, config, prompt)
+```
+
+To aid visualization, Streamlit dashboard is also provided.
+
 ## Planned Research Variables
 
 ### Number of nodes
