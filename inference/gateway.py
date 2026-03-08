@@ -19,7 +19,7 @@ from fastapi import FastAPI, HTTPException
 from transformers import AutoTokenizer
 
 from .helpers import _b64_to_tensor
-from .schemas import GenerateRequest, GenerateResponse
+from .schemas import GenerateRequest, GenerateResponse, NodeTiming
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Distributed LLM Gateway", lifespan=lifespan)
 
-async def _pipeline_forward(input_ids: List[List[int]]) -> torch.Tensor:
+async def _pipeline_forward(
+    input_ids: List[List[int]],
+) -> tuple[torch.Tensor, List[NodeTiming]]:
     payload = {"input_ids": input_ids}
     resp = await http_client.post(f"{WORKER_URL}/forward", json=payload)
     if resp.status_code != 200:
@@ -62,44 +64,85 @@ async def _pipeline_forward(input_ids: List[List[int]]) -> torch.Tensor:
             detail="Worker pipeline did not return logits",
         )
 
-    return _b64_to_tensor(logits_b64)
+    node_timings = [NodeTiming(**nt) for nt in body.get("node_timings", [])]
+    return _b64_to_tensor(logits_b64), node_timings
 
 
-async def generate_tokens(prompt: str) -> str:
+async def generate_tokens(
+    prompt: str,
+    max_new_tokens: int | None = None,
+) -> tuple[str, int, float, List[NodeTiming]]:
     """Auto-regressive generation driven by the gateway.
 
-    Each iteration sends the full token sequence through the pipeline and greedily picks the next token.
+    Returns ``(text, tokens_generated, ttft_ms, accumulated_node_timings)``.
     """
+    gen_limit = max_new_tokens if max_new_tokens is not None else MAX_NEW_TOKENS
     encoded = tokenizer(prompt, return_tensors="pt")
     input_ids: torch.Tensor = encoded["input_ids"]
     eos_token_id = tokenizer.eos_token_id
 
-    for _ in range(MAX_NEW_TOKENS):
-        # Send current sequence through the pipeline
-        ids_list = input_ids.tolist()
-        logits = await _pipeline_forward(ids_list)
+    time_start = time.perf_counter()
+    ttft_ms = 0.0
+    tokens_generated = 0
+    accumulated: dict[int, dict] = {}
 
-        # Take logits for the last position
+    for step in range(gen_limit):
+        ids_list = input_ids.tolist()
+        logits, step_timings = await _pipeline_forward(ids_list)
+
+        if step == 0:
+            ttft_ms = (time.perf_counter() - time_start) * 1000
+
+        # Accumulate per-node timings across generation steps
+        for nt in step_timings:
+            nid = nt.node_id
+            if nid not in accumulated:
+                accumulated[nid] = {
+                    "node_id": nid,
+                    "compute_ms": 0.0,
+                    "serialization_ms": 0.0,
+                    "network_ms": 0.0,
+                    "peak_memory_bytes": 0,
+                }
+            accumulated[nid]["compute_ms"] += nt.compute_ms
+            accumulated[nid]["serialization_ms"] += nt.serialization_ms
+            accumulated[nid]["network_ms"] += nt.network_ms
+            accumulated[nid]["peak_memory_bytes"] = max(
+                accumulated[nid]["peak_memory_bytes"], nt.peak_memory_bytes
+            )
+
         next_logits = logits[:, -1, :]
         next_token = torch.argmax(next_logits, dim=-1, keepdim=True)
-
-        # Append and check EOS
         input_ids = torch.cat([input_ids, next_token], dim=1)
+        tokens_generated += 1
+
         if eos_token_id is not None and next_token.item() == eos_token_id:
             break
 
-    return tokenizer.decode(input_ids[0], skip_special_tokens=True)
+    text = tokenizer.decode(input_ids[0], skip_special_tokens=True)
+    total_timings = [
+        NodeTiming(**v)
+        for v in sorted(accumulated.values(), key=lambda x: x["node_id"])
+    ]
+    return text, tokens_generated, ttft_ms, total_timings
 
 
 @app.post("/generate", response_model=GenerateResponse)
 async def generate(req: GenerateRequest):
     time_start = time.perf_counter()
-    output = await generate_tokens(req.prompt)
+    output, tokens_generated, ttft_ms, node_timings = await generate_tokens(
+        req.prompt, req.max_new_tokens
+    )
     elapsed = (time.perf_counter() - time_start) * 1000
+    tps = (tokens_generated / (elapsed / 1000)) if elapsed > 0 else 0.0
 
     return GenerateResponse(
         output=output,
         elapsed_ms=round(elapsed, 1),
+        time_to_first_token_ms=round(ttft_ms, 1),
+        tokens_generated=tokens_generated,
+        tokens_per_second=round(tps, 2),
+        node_timings=node_timings,
     )
 
 

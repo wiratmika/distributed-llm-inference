@@ -10,6 +10,7 @@ It exposes a /forward endpoint that:
 
 import logging
 import os
+import sys
 import time
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -24,7 +25,7 @@ from .models import (
     ModelShard,
     partition_layers,
 )
-from .schemas import ForwardRequest, ForwardResponse
+from .schemas import ForwardRequest, ForwardResponse, NodeTiming
 
 logger = logging.getLogger(__name__)
 
@@ -82,38 +83,75 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title=f"Worker node (rank {RANK})", lifespan=lifespan)
 
 
+def _get_peak_memory() -> int:
+    """Return peak RSS in bytes."""
+    try:
+        import resource as _resource
+
+        usage = _resource.getrusage(_resource.RUSAGE_SELF)
+        if sys.platform == "darwin":
+            return usage.ru_maxrss  # bytes on macOS
+        return usage.ru_maxrss * 1024  # KB -> bytes on Linux
+    except Exception:
+        return 0
+
+
 @app.post("/forward", response_model=ForwardResponse)
 async def forward(req: ForwardRequest):
     if shard is None:
         raise HTTPException(status_code=503, detail="Model shard not loaded yet")
 
-    time_start = time.perf_counter()
+    deserialization_start = time.perf_counter()
 
     with torch.inference_mode():
         if shard.is_first:
-            # First node expects token IDs
             if req.input_ids is None:
                 raise HTTPException(
                     status_code=400,
                     detail="First worker (rank 0) requires 'input_ids'",
                 )
             input_ids = torch.tensor(req.input_ids, dtype=torch.long)
+            deserialization_ms = (time.perf_counter() - deserialization_start) * 1000
+
+            compute_start = time.perf_counter()
             hidden = shard(hidden_states=torch.empty(0), input_ids=input_ids)
+            compute_ms = (time.perf_counter() - compute_start) * 1000
         else:
-            # Later nodes expect serialized hidden states
             if req.hidden_b64 is None:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Worker rank {RANK} requires 'hidden_b64'",
                 )
             hidden = _b64_to_tensor(req.hidden_b64)
-            hidden = shard(hidden_states=hidden)
+            deserialization_ms = (time.perf_counter() - deserialization_start) * 1000
 
-    elapsed_ms = (time.perf_counter() - time_start) * 1000
-    logger.info("Rank %d forward pass: %.1f ms", RANK, elapsed_ms)
+            compute_start = time.perf_counter()
+            hidden = shard(hidden_states=hidden)
+            compute_ms = (time.perf_counter() - compute_start) * 1000
+
+    # Serialize output tensor
+    serialization_start = time.perf_counter()
+    output_b64 = _tensor_to_b64(hidden)
+    serialization_ms = (time.perf_counter() - serialization_start) * 1000
+    total_serialization_ms = deserialization_ms + serialization_ms
+
+    logger.info(
+        "Rank %d forward: compute=%.1f ms  serialization=%.1f ms",
+        RANK,
+        compute_ms,
+        total_serialization_ms,
+    )
+
+    my_timing = NodeTiming(
+        node_id=RANK,
+        compute_ms=compute_ms,
+        serialization_ms=total_serialization_ms,
+        network_ms=0.0,
+        peak_memory_bytes=_get_peak_memory(),
+    )
 
     if shard.is_last:
-        return ForwardResponse(logits_b64=_tensor_to_b64(hidden))
+        return ForwardResponse(logits_b64=output_b64, node_timings=[my_timing])
 
     if not NEXT_NODE_URL:
         raise HTTPException(
@@ -121,18 +159,27 @@ async def forward(req: ForwardRequest):
             detail="NEXT_NODE_URL not configured but this is not the last node",
         )
 
-    next_req = ForwardRequest(hidden_b64=_tensor_to_b64(hidden))
+    next_req = ForwardRequest(hidden_b64=output_b64)
+    network_start = time.perf_counter()
     resp = await http_client.post(
         f"{NEXT_NODE_URL}/forward",
         json=next_req.model_dump(),
     )
+    my_timing.network_ms = (time.perf_counter() - network_start) * 1000
+
     if resp.status_code != 200:
         raise HTTPException(
             status_code=502,
             detail=f"Next node returned {resp.status_code}: {resp.text}",
         )
 
-    return ForwardResponse(**resp.json())
+    body = resp.json()
+    downstream_timings = [NodeTiming(**nt) for nt in body.get("node_timings", [])]
+
+    return ForwardResponse(
+        logits_b64=body.get("logits_b64"),
+        node_timings=[my_timing] + downstream_timings,
+    )
 
 
 @app.get("/health")
