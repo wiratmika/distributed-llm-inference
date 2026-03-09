@@ -26,6 +26,13 @@ The primary goals of this study are to learn how to create such a system from sc
 
 The emphasis of this project are the benefits and trade-offs of distributed computing in model inference, and optimizing for maximum performance is not part of the design goal. Therefore, to simplify the deployment environment and save costs, the model will run using CPU only and will not utilize any GPU. By not requiring a GPU, the setup can be easily replicated with generic cloud virtual machines.
 
+<p align="center">
+  <img src="./assets/system-architecture.svg" width="500">
+</p>
+<p align="center">
+  <sub><b>Figure 3:</b> System architecture overview.</sub>
+</p>
+
 With that constraint in mind, this study is using GPT-2 family models. It has simple, well-understood architecture making it simple enough to understand every component but complex enough to reveal real distributed systems challenges. There are also non-technical practical benefits, such as its mature ecosystem with excellent documentation and permissive license (MIT).
 
 Specifically, the proof-of-concept will use GPT-2 Small to build the infrastructure and validate the architecture works before scaling. It has 124M parameters and 12 layers that are easy to split, test, and runs very fast even on CPU. Eventually, the experiment will use GPT-2 XL, as the size is large enough that distributed inference makes sense in that it will not fit easily in a single CPU memory with full context. At 1.5B parameters and 48 layers, the size will see real benefits from sharding without needing excessive infrastructure.
