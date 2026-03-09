@@ -40,7 +40,7 @@ def _send_request(
 
 
 def _response_to_run_metrics(response: dict, run_index: int) -> RunMetrics:
-    """Convert a gateway JSON response into a :class:`RunMetrics` instance."""
+    """Convert a gateway JSON response into a RunMetrics instance."""
     raw_timings: list[dict] = response.get("node_timings", [])
 
     node_metrics_list: list[NodeMetrics] = []

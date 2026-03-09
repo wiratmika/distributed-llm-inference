@@ -41,14 +41,14 @@ Inter-process communications is using HTTP as the overhead is extremely small co
 5. Run `benchmark-dashboard` to optionally launch benchmarking dashboard
 
 ### Sending request
-```
+```sh
 curl -X POST http://localhost:8000/generate \
      -H 'Content-Type: application/json' \
      -d '{"prompt": "Hello world!"}'
 ```
 
 ### Configure model and worker nodes
-```
+```sh
 ./launch_local.sh              # default: 3 worker nodes, gpt2 model
 ./launch_local.sh 4            # 4 worker nodes
 ./launch_local.sh 2 gpt2-xl    # 2 nodes, gpt2-xl model
@@ -69,7 +69,12 @@ from benchmark.runner import run_config
 result = run_config(url, config, prompt)
 ```
 
+## Visualizing results
 To aid visualization, Streamlit dashboard is also provided.
+
+```sh
+streamlit run benchmark/dashboard.py
+```
 
 ## Planned Research Variables
 

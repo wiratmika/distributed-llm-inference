@@ -3,16 +3,26 @@ import pathlib
 from dataclasses import asdict
 from typing import Any
 
+import pandas as pd
+
 from benchmark.metrics import ConfigResult, NodeMetrics, RunMetrics
 
 RESULTS_DIR = pathlib.Path("results")
 
 
+def _experiment_dir_name(experiment_id: int, experiment_name: str) -> str:
+    slug = experiment_name.lower().replace(" ", "-")
+    return f"exp{experiment_id}_{slug}"
+
+
 def save_result(
     result: ConfigResult, directory: pathlib.Path = RESULTS_DIR
 ) -> pathlib.Path:
-    directory.mkdir(parents=True, exist_ok=True)
-    path = directory / f"{result.config_name}.json"
+    subdir = directory / _experiment_dir_name(
+        result.experiment_id, result.experiment_name
+    )
+    subdir.mkdir(parents=True, exist_ok=True)
+    path = subdir / f"{result.config_name}.json"
     with open(path, "w") as f:
         json.dump(asdict(result), f, indent=2)
     return path
@@ -26,7 +36,7 @@ def load_result(path: pathlib.Path) -> ConfigResult:
 def load_all_results(directory: pathlib.Path = RESULTS_DIR) -> list[ConfigResult]:
     if not directory.exists():
         return []
-    return [load_result(p) for p in sorted(directory.glob("*.json"))]
+    return [load_result(p) for p in sorted(directory.rglob("*.json"))]
 
 
 def from_dict(data: dict[str, Any]) -> ConfigResult:
@@ -50,6 +60,8 @@ def from_dict(data: dict[str, Any]) -> ConfigResult:
         concurrent_clients=data["concurrent_clients"],
         model=data["model"],
         generation_length=data["generation_length"],
+        experiment_id=data.get("experiment_id", 0),
+        experiment_name=data.get("experiment_name", ""),
         runs=runs,
         latency_median=data.get("latency_median", 0.0),
         latency_p95=data.get("latency_p95", 0.0),
@@ -61,3 +73,28 @@ def from_dict(data: dict[str, Any]) -> ConfigResult:
         },
     )
     return result
+
+
+def results_to_dataframe(
+    results: list[ConfigResult],
+) -> pd.DataFrame:
+    """Flatten a list of :class:`ConfigResult` into a single DataFrame."""
+    rows: list[dict] = []
+    for result in results:
+        for i, run in enumerate(result.runs):
+            rows.append(
+                {
+                    "experiment": result.experiment_name,
+                    "name": result.config_name,
+                    "nodes": result.nodes,
+                    "sequence_length": result.input_length,
+                    "batch_size": result.concurrent_clients,
+                    "generation_length": result.generation_length,
+                    "run": i,
+                    "total_time": run.end_to_end_latency,
+                    "tokens_per_second": run.tokens_per_second,
+                    "tokens_generated": run.tokens_generated,
+                    "time_to_first_token": run.time_to_first_token,
+                }
+            )
+    return pd.DataFrame(rows)

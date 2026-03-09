@@ -36,6 +36,21 @@ class Experiment:
 
 
 EXPERIMENTS: dict[int, Experiment] = {
+    0: Experiment(
+        id=0,
+        name="Smoke test",
+        question="Is the gateway reachable and returning valid responses?",
+        configs=[
+            RunConfig(
+                nodes=1,
+                input_length=32,
+                concurrent_clients=1,
+                generation_length=10,
+                warmup_runs=0,
+                measurement_runs=3,
+            )
+        ],
+    ),
     1: Experiment(
         id=1,
         name="Scaling",

@@ -25,6 +25,8 @@ def run_config(
     gateway_url: str,
     config: RunConfig,
     prompt: str,
+    experiment_id: int = 0,
+    experiment_name: str = "",
     progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> ConfigResult:
     total_steps = config.warmup_runs + config.measurement_runs
@@ -73,6 +75,8 @@ def run_config(
         concurrent_clients=config.concurrent_clients,
         model=config.model,
         generation_length=config.generation_length,
+        experiment_id=experiment_id,
+        experiment_name=experiment_name,
         runs=all_runs,
     )
     result.compute_summary()
@@ -155,7 +159,12 @@ def main() -> None:
             prompt = PROMPTS.get(cfg.input_length, PROMPTS[32])
             logger.info("Config %d/%d: %s", idx + 1, len(experiment.configs), cfg.name)
             result = run_config(
-                args.gateway_url, cfg, prompt, progress_callback=_log_progress
+                args.gateway_url,
+                cfg,
+                prompt,
+                experiment_id=experiment.id,
+                experiment_name=experiment.name,
+                progress_callback=_log_progress,
             )
             path = save_result(result, output_dir)
             logger.info(
