@@ -146,7 +146,6 @@ async def forward(req: ForwardRequest):
         node_id=RANK,
         compute_ms=compute_ms,
         serialization_ms=total_serialization_ms,
-        network_ms=0.0,
         peak_memory_bytes=_get_peak_memory(),
     )
 
@@ -160,12 +159,10 @@ async def forward(req: ForwardRequest):
         )
 
     next_req = ForwardRequest(hidden_b64=output_b64)
-    network_start = time.perf_counter()
     resp = await http_client.post(
         f"{NEXT_NODE_URL}/forward",
         json=next_req.model_dump(),
     )
-    my_timing.network_ms = (time.perf_counter() - network_start) * 1000
 
     if resp.status_code != 200:
         raise HTTPException(

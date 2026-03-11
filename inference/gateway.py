@@ -101,12 +101,10 @@ async def generate_tokens(
                     "node_id": nid,
                     "compute_ms": 0.0,
                     "serialization_ms": 0.0,
-                    "network_ms": 0.0,
                     "peak_memory_bytes": 0,
                 }
             accumulated[nid]["compute_ms"] += nt.compute_ms
             accumulated[nid]["serialization_ms"] += nt.serialization_ms
-            accumulated[nid]["network_ms"] += nt.network_ms
             accumulated[nid]["peak_memory_bytes"] = max(
                 accumulated[nid]["peak_memory_bytes"], nt.peak_memory_bytes
             )

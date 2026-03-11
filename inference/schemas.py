@@ -9,7 +9,6 @@ class NodeTiming(BaseModel):
     node_id: int = 0
     compute_ms: float = 0.0
     serialization_ms: float = 0.0
-    network_ms: float = 0.0
     peak_memory_bytes: int = 0
 
 

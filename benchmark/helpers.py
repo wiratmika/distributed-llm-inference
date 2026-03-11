@@ -47,28 +47,14 @@ def _response_to_run_metrics(response: dict, run_index: int) -> RunMetrics:
     for i, nt in enumerate(raw_timings):
         compute_s = nt.get("compute_ms", 0.0) / 1000
         ser_s = nt.get("serialization_ms", 0.0) / 1000
-        fwd_s = nt.get("network_ms", 0.0) / 1000  # includes downstream processing
-
-        # Derive pure network transfer time by subtracting downstream totals.
-        downstream_s = sum(
-            (
-                raw_timings[j].get("compute_ms", 0.0)
-                + raw_timings[j].get("serialization_ms", 0.0)
-                + raw_timings[j].get("network_ms", 0.0)
-            )
-            / 1000
-            for j in range(i + 1, len(raw_timings))
-        )
-        net_transfer_s = max(0.0, fwd_s - downstream_s)
 
         node_metrics_list.append(
             NodeMetrics(
                 node_id=nt.get("node_id", i),
                 compute_time=compute_s,
                 serialization_time=ser_s,
-                network_transfer_time=net_transfer_s,
                 idle_time=0.0,
-                peak_memory_rss=nt.get("peak_memory_bytes", 0),
+                peak_memory_rss=nt.get("peak_memory_bytes", 0) / (1024 * 1024),
             )
         )
 

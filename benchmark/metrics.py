@@ -10,9 +10,8 @@ class NodeMetrics:
     node_id: int
     compute_time: float = 0.0
     serialization_time: float = 0.0
-    network_transfer_time: float = 0.0
     idle_time: float = 0.0
-    peak_memory_rss: int = 0
+    peak_memory_rss: float = 0.0  # MB
 
 
 @dataclass
@@ -47,7 +46,7 @@ class ConfigResult:
     ttft_median: float = 0.0
     ttft_p95: float = 0.0
     throughput_median: float = 0.0
-    peak_memory_per_node: dict[int, int] = field(default_factory=dict)
+    peak_memory_per_node: dict[int, float] = field(default_factory=dict)  # MB
 
     def compute_summary(self) -> None:
         if not self.runs:
