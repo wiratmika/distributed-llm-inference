@@ -37,6 +37,7 @@ def from_dict(data: dict[str, Any]) -> ConfigResult:
             run_index=r["run_index"],
             end_to_end_latency=r.get("end_to_end_latency", 0.0),
             time_to_first_token=r.get("time_to_first_token", 0.0),
+            total_network_time=r.get("total_network_time", 0.0),
             tokens_generated=r.get("tokens_generated", 0),
             tokens_per_second=r.get("tokens_per_second", 0.0),
             node_metrics=[NodeMetrics(**nm) for nm in r.get("node_metrics", [])],
@@ -85,6 +86,7 @@ def results_to_dataframe(
                     "tokens_per_second": run.tokens_per_second,
                     "tokens_generated": run.tokens_generated,
                     "time_to_first_token": run.time_to_first_token,
+                    "total_network_time": run.total_network_time,
                 }
             )
     return pd.DataFrame(rows)

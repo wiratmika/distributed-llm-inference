@@ -20,6 +20,7 @@ class RunMetrics:
     run_index: int
     end_to_end_latency: float = 0.0
     time_to_first_token: float = 0.0
+    total_network_time: float = 0.0
     tokens_generated: int = 0
     tokens_per_second: float = 0.0
     node_metrics: list[NodeMetrics] = field(default_factory=list)

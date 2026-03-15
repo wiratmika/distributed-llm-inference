@@ -19,7 +19,7 @@ from fastapi import FastAPI, HTTPException
 from transformers import AutoTokenizer
 
 from .helpers import _b64_to_tensor
-from .schemas import GenerateRequest, GenerateResponse, NodeTiming
+from .schemas import GenerateRequest, GenerateResponse, NetworkHopTiming, NodeTiming
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +57,14 @@ app = FastAPI(title="Distributed LLM Gateway", lifespan=lifespan)
 async def _pipeline_forward(
     input_ids: List[List[int]],
     worker_url: str,
-) -> tuple[torch.Tensor, List[NodeTiming]]:
-    payload = {"input_ids": input_ids}
+) -> tuple[torch.Tensor, List[NodeTiming], float]:
+    sent_wall_ns = time.time_ns()
+    payload = {
+        "input_ids": input_ids,
+        "upstream_sent_wall_ns": sent_wall_ns,
+    }
     resp = await http_client.post(f"{worker_url}/forward", json=payload)
+    recv_wall_ns = time.time_ns()
     if resp.status_code != 200:
         raise HTTPException(
             status_code=502,
@@ -75,14 +80,36 @@ async def _pipeline_forward(
         )
 
     node_timings = [NodeTiming(**nt) for nt in body.get("node_timings", [])]
-    return _b64_to_tensor(logits_b64), node_timings
+    downstream_hops = [
+        NetworkHopTiming(**hop)
+        for hop in body.get("network_hop_timings", [])
+    ]
+
+    request_network_ms = max(0.0, body.get("ingress_network_ms", 0.0))
+    response_sent_wall_ns = int(body.get("response_sent_wall_ns", 0) or 0)
+    response_network_ms = 0.0
+    if response_sent_wall_ns > 0:
+        response_network_ms = max(0.0, (recv_wall_ns - response_sent_wall_ns) / 1_000_000)
+
+    gateway_hop = NetworkHopTiming(
+        from_node_id=-1,
+        to_node_id=0,
+        request_network_ms=request_network_ms,
+        response_network_ms=response_network_ms,
+        total_network_ms=request_network_ms + response_network_ms,
+    )
+
+    total_network_time_ms = gateway_hop.total_network_ms + sum(
+        hop.total_network_ms for hop in downstream_hops
+    )
+    return _b64_to_tensor(logits_b64), node_timings, total_network_time_ms
 
 
 async def generate_tokens(
     prompt: str,
     nodes: int,
     max_new_tokens: int | None = None,
-) -> tuple[str, int, float, List[NodeTiming]]:
+) -> tuple[str, int, float, float, List[NodeTiming]]:
     """Auto-regressive generation driven by the gateway.
 
     Returns ``(text, tokens_generated, ttft_ms, accumulated_node_timings)``.
@@ -94,6 +121,7 @@ async def generate_tokens(
 
     time_start = time.perf_counter()
     ttft_ms = 0.0
+    total_network_time_ms = 0.0
     tokens_generated = 0
     accumulated: dict[int, dict] = {}
     worker_url = WORKER_URLS.get(nodes)
@@ -105,7 +133,8 @@ async def generate_tokens(
 
     for step in range(gen_limit):
         ids_list = input_ids.tolist()
-        logits, step_timings = await _pipeline_forward(ids_list, worker_url)
+        logits, step_timings, step_network_time_ms = await _pipeline_forward(ids_list, worker_url)
+        total_network_time_ms += step_network_time_ms
 
         if step == 0:
             ttft_ms = (time.perf_counter() - time_start) * 1000
@@ -139,13 +168,13 @@ async def generate_tokens(
         NodeTiming(**v)
         for v in sorted(accumulated.values(), key=lambda x: x["node_id"])
     ]
-    return text, tokens_generated, ttft_ms, total_timings
+    return text, tokens_generated, ttft_ms, total_network_time_ms, total_timings
 
 
 @app.post("/generate", response_model=GenerateResponse)
 async def generate(req: GenerateRequest):
     time_start = time.perf_counter()
-    output, tokens_generated, ttft_ms, node_timings = await generate_tokens(
+    output, tokens_generated, ttft_ms, total_network_time_ms, node_timings = await generate_tokens(
         req.prompt, req.nodes, req.max_new_tokens
     )
     elapsed = (time.perf_counter() - time_start) * 1000
@@ -157,6 +186,7 @@ async def generate(req: GenerateRequest):
         time_to_first_token_ms=round(ttft_ms, 1),
         tokens_generated=tokens_generated,
         tokens_per_second=round(tps, 2),
+        total_network_time_ms=round(total_network_time_ms, 1),
         node_timings=node_timings,
     )
 

@@ -26,7 +26,7 @@ from .models import (
     ModelShard,
     partition_layers,
 )
-from .schemas import ForwardRequest, ForwardResponse, NodeTiming
+from .schemas import ForwardRequest, ForwardResponse, NetworkHopTiming, NodeTiming
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +107,14 @@ async def forward(req: ForwardRequest):
     if shard is None:
         raise HTTPException(status_code=503, detail="Model shard not loaded yet")
 
+    recv_wall_ns = time.time_ns()
+    ingress_network_ms = 0.0
+    if req.upstream_sent_wall_ns is not None:
+        ingress_network_ms = max(
+            0.0,
+            (recv_wall_ns - int(req.upstream_sent_wall_ns)) / 1_000_000,
+        )
+
     deserialization_start = time.perf_counter()
 
     with torch.inference_mode():
@@ -156,7 +164,13 @@ async def forward(req: ForwardRequest):
     )
 
     if shard.is_last:
-        return ForwardResponse(logits_b64=output_b64, node_timings=[my_timing])
+        return ForwardResponse(
+            logits_b64=output_b64,
+            node_timings=[my_timing],
+            ingress_network_ms=ingress_network_ms,
+            response_sent_wall_ns=time.time_ns(),
+            network_hop_timings=[],
+        )
 
     if not NEXT_NODE_URL:
         raise HTTPException(
@@ -164,11 +178,16 @@ async def forward(req: ForwardRequest):
             detail="NEXT_NODE_URL not configured but this is not the last node",
         )
 
-    next_req = ForwardRequest(hidden_b64=output_b64)
+    next_sent_wall_ns = time.time_ns()
+    next_req = ForwardRequest(
+        hidden_b64=output_b64,
+        upstream_sent_wall_ns=next_sent_wall_ns,
+    )
     resp = await http_client.post(
         f"{NEXT_NODE_URL}/forward",
         json=next_req.model_dump(),
     )
+    next_resp_recv_wall_ns = time.time_ns()
 
     if resp.status_code != 200:
         raise HTTPException(
@@ -178,10 +197,34 @@ async def forward(req: ForwardRequest):
 
     body = resp.json()
     downstream_timings = [NodeTiming(**nt) for nt in body.get("node_timings", [])]
+    downstream_hops = [
+        NetworkHopTiming(**hop)
+        for hop in body.get("network_hop_timings", [])
+    ]
+
+    request_network_ms = max(0.0, body.get("ingress_network_ms", 0.0))
+    downstream_response_sent_wall_ns = int(body.get("response_sent_wall_ns", 0) or 0)
+    response_network_ms = 0.0
+    if downstream_response_sent_wall_ns > 0:
+        response_network_ms = max(
+            0.0,
+            (next_resp_recv_wall_ns - downstream_response_sent_wall_ns) / 1_000_000,
+        )
+
+    this_hop = NetworkHopTiming(
+        from_node_id=RANK,
+        to_node_id=RANK + 1,
+        request_network_ms=request_network_ms,
+        response_network_ms=response_network_ms,
+        total_network_ms=request_network_ms + response_network_ms,
+    )
 
     return ForwardResponse(
         logits_b64=body.get("logits_b64"),
         node_timings=[my_timing] + downstream_timings,
+        ingress_network_ms=ingress_network_ms,
+        response_sent_wall_ns=time.time_ns(),
+        network_hop_timings=[this_hop] + downstream_hops,
     )
 
 

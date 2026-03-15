@@ -61,6 +61,7 @@ def _response_to_run_metrics(response: dict, run_index: int) -> RunMetrics:
 
     end_to_end_latency = response.get("elapsed_ms", 0.0) / 1000.0
     time_to_first_token = response.get("time_to_first_token_ms", 0.0) / 1000.0
+    total_network_time = response.get("total_network_time_ms", 0.0) / 1000.0
     tokens_generated = response.get("tokens_generated", 0)
     tokens_per_second = tokens_generated / end_to_end_latency if end_to_end_latency > 0 else 0.0
 
@@ -68,6 +69,7 @@ def _response_to_run_metrics(response: dict, run_index: int) -> RunMetrics:
         run_index=run_index,
         end_to_end_latency=end_to_end_latency,
         time_to_first_token=time_to_first_token,
+        total_network_time=total_network_time,
         tokens_generated=tokens_generated,
         tokens_per_second=tokens_per_second,
         node_metrics=node_metrics_list,
