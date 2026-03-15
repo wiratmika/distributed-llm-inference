@@ -24,7 +24,13 @@ variable "machine_type" {
 variable "boot_disk_size_gb" {
   description = "Boot disk size in GB"
   type        = number
-  default     = 20
+  default     = 100
+}
+
+variable "model_name" {
+  description = "Model name used by gateway and workers"
+  type        = string
+  default     = "gpt2-xl"
 }
 
 variable "ssh_user" {

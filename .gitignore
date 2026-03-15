@@ -2,3 +2,4 @@
 __pycache__
 infrastructure/terraform.tfvars
 .terraform/
+*.tfstate

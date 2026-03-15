@@ -77,7 +77,6 @@ streamlit run benchmark/dashboard.py
 cd infrastructure
 terraform init
 terraform apply
-./scripts/deploy-app.sh
 ```
    
 ## Planned Research Variables
