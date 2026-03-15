@@ -11,6 +11,7 @@ COPY pyproject.toml poetry.lock ./
 RUN poetry install --no-root --no-interaction --no-ansi
 
 ARG MODEL_NAME=gpt2-xl
+
 RUN python -c "\
 from transformers import AutoModelForCausalLM, AutoTokenizer; \
 AutoModelForCausalLM.from_pretrained('${MODEL_NAME}'); \
@@ -18,5 +19,4 @@ AutoTokenizer.from_pretrained('${MODEL_NAME}');"
 
 COPY inference/ ./inference/
 
-# To be replaced by Docker Compose
-CMD ["uvicorn", "inference.gateway:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "inference.worker:app", "--host", "0.0.0.0", "--port", "8000"]

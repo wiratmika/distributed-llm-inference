@@ -8,6 +8,7 @@ It exposes a /forward endpoint that:
 3. Forwards the output to the next worker, or returns the final logits if this is the last stage.
 """
 
+import gc
 import logging
 import os
 import sys
@@ -58,6 +59,10 @@ def _build_shard() -> ModelShard:
         is_last=is_last,
     )
     node_shard.eval()
+
+    # Free up memory by deleting the original model reference and forcing garbage collection
+    del full_model
+    gc.collect()
 
     logger.info(
         "Shard ready: %s  (first=%s, last=%s)",
