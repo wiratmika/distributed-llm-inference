@@ -1,6 +1,6 @@
+import statistics
 import time
 from dataclasses import dataclass, field
-from typing import Sequence
 
 
 @dataclass
@@ -10,7 +10,6 @@ class NodeMetrics:
     node_id: int
     compute_time: float = 0.0
     serialization_time: float = 0.0
-    idle_time: float = 0.0
     peak_memory_rss: float = 0.0  # MB
 
 
@@ -42,9 +41,7 @@ class ConfigResult:
 
     runs: list[RunMetrics] = field(default_factory=list)
     latency_median: float = 0.0
-    latency_p95: float = 0.0
     ttft_median: float = 0.0
-    ttft_p95: float = 0.0
     throughput_median: float = 0.0
     peak_memory_per_node: dict[int, float] = field(default_factory=dict)  # MB
 
@@ -52,28 +49,13 @@ class ConfigResult:
         if not self.runs:
             return
 
-        latencies = [r.end_to_end_latency for r in self.runs]
-        ttfts = [r.time_to_first_token for r in self.runs]
-        tps_values = [r.tokens_per_second for r in self.runs]
+        self.latency_median = statistics.median(r.end_to_end_latency for r in self.runs)
+        self.ttft_median = statistics.median(r.time_to_first_token for r in self.runs)
+        self.throughput_median = statistics.median(r.tokens_per_second for r in self.runs)
 
-        self.latency_median = self._percentile(latencies, 50)
-        self.latency_p95 = self._percentile(latencies, 95)
-
-        self.ttft_median = self._percentile(ttfts, 50)
-        self.ttft_p95 = self._percentile(ttfts, 95)
-
-        self.throughput_median = self._percentile(tps_values, 50)
-
-        mem: dict[int, int] = {}
+        mem: dict[int, float] = {}
         for run in self.runs:
             for nm in run.node_metrics:
                 if nm.node_id not in mem or nm.peak_memory_rss > mem[nm.node_id]:
                     mem[nm.node_id] = nm.peak_memory_rss
         self.peak_memory_per_node = mem
-
-    def _percentile(self, values: Sequence[float], pct: float) -> float:
-        if not values:
-            return 0.0
-        sorted_v = sorted(values)
-        k = int(pct / 100 * (len(sorted_v) - 1) + 0.5)
-        return sorted_v[k]

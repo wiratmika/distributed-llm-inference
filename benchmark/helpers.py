@@ -53,7 +53,6 @@ def _response_to_run_metrics(response: dict, run_index: int) -> RunMetrics:
                 node_id=nt.get("node_id", i),
                 compute_time=compute_s,
                 serialization_time=ser_s,
-                idle_time=0.0,
                 peak_memory_rss=nt.get("peak_memory_bytes", 0) / (1024 * 1024),
             )
         )

@@ -28,7 +28,7 @@ output "ssh_commands" {
   value = {
     gateway = "gcloud compute ssh gateway --zone=${var.zone}"
     workers = [
-      for i in range(3) :
+      for i in range(7) :
       "gcloud compute ssh worker-${i + 1} --zone=${var.zone}"
     ]
   }

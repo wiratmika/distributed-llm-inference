@@ -159,7 +159,6 @@ def page_run_benchmark(df: pd.DataFrame) -> None:
                 "Input length": r.input_length,
                 "Clients": r.concurrent_clients,
                 "Latency (median)": f"{r.latency_median:.3f} s",
-                "Latency (P95)": f"{r.latency_p95:.3f} s",
                 "TTFT (median)": f"{r.ttft_median:.3f} s",
                 "Throughput (median)": f"{r.throughput_median:.1f} tok/s",
             }

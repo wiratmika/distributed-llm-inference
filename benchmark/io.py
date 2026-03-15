@@ -64,9 +64,7 @@ def from_dict(data: dict[str, Any]) -> ConfigResult:
         experiment_name=data.get("experiment_name", ""),
         runs=runs,
         latency_median=data.get("latency_median", 0.0),
-        latency_p95=data.get("latency_p95", 0.0),
         ttft_median=data.get("ttft_median", 0.0),
-        ttft_p95=data.get("ttft_p95", 0.0),
         throughput_median=data.get("throughput_median", 0.0),
         peak_memory_per_node={
             int(k): v for k, v in data.get("peak_memory_per_node", {}).items()

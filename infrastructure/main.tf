@@ -64,7 +64,7 @@ resource "google_compute_instance" "gateway" {
 
 # Worker VMs
 resource "google_compute_instance" "workers" {
-  count        = 3
+  count        = 7
   name         = "worker-${count.index + 1}"
   machine_type = var.machine_type
   zone         = var.zone

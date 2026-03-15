@@ -4,8 +4,8 @@ from itertools import product
 MODEL: str = "gpt2-xl"
 GENERATION_LENGTH: int = 50
 SAMPLING: str = "greedy"
-WARMUP_RUNS: int = 3
-MEASUREMENT_RUNS: int = 20
+WARMUP_RUNS: int = 1
+MEASUREMENT_RUNS: int = 3
 TORCH_THREADS: int = 4
 
 
@@ -57,22 +57,11 @@ EXPERIMENTS: dict[int, Experiment] = {
         question="At what point does adding nodes help or hurt latency?",
         configs=[
             RunConfig(nodes=n, input_length=il, concurrent_clients=1)
-            for n, il in product([1, 2, 4, 8], [32, 256, 1024])
+            for n, il in product([1, 2, 4], [32, 256, 1024])
         ],
     ),
     2: Experiment(
         id=2,
-        name="Time breakdown",
-        question=(
-            "What fraction of wall-clock time is compute vs. serialization vs. network transfer vs. idle?"
-        ),
-        configs=[
-            RunConfig(nodes=n, input_length=256, concurrent_clients=1)
-            for n in [1, 2, 4, 8]
-        ],
-    ),
-    3: Experiment(
-        id=3,
         name="Concurrency",
         question=(
             "Does pipeline parallelism actually utilize idle stages when "
@@ -80,29 +69,10 @@ EXPERIMENTS: dict[int, Experiment] = {
         ),
         configs=[
             RunConfig(nodes=n, input_length=256, concurrent_clients=c)
-            for n, c in product([1, 2, 4, 8], [1, 4, 16])
-        ],
-    ),
-    4: Experiment(
-        id=4,
-        name="Input sensitivity",
-        question="How does input length affect the distribution trade-off?",
-        reuses=1,
-        configs=[],  # populated below
-    ),
-    5: Experiment(
-        id=5,
-        name="Memory",
-        question="Does sharding actually reduce per-node memory?",
-        configs=[
-            RunConfig(nodes=n, input_length=1024, concurrent_clients=1)
-            for n in [1, 2, 4, 8]
+            for n, c in product([1, 2, 4], [1, 4])
         ],
     ),
 }
-
-# Experiment 4 reuses Experiment 1 configs exactly
-EXPERIMENTS[4].configs = list(EXPERIMENTS[1].configs)
 
 PROMPT_32 = (
     "The study of distributed systems is concerned with how independent "
