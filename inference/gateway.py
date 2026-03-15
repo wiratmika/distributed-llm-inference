@@ -35,6 +35,7 @@ http_client: Optional[httpx.AsyncClient] = None
 async def lifespan(app: FastAPI):
     global tokenizer, http_client
 
+    torch.set_num_threads(2)
     logger.info("Gateway starting – model=%s, worker=%s", MODEL_NAME, WORKER_URL)
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     http_client = httpx.AsyncClient(timeout=httpx.Timeout(300.0))

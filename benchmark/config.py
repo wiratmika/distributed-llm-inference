@@ -6,7 +6,6 @@ GENERATION_LENGTH: int = 50
 SAMPLING: str = "greedy"
 WARMUP_RUNS: int = 1
 MEASUREMENT_RUNS: int = 3
-TORCH_THREADS: int = 4
 
 
 @dataclass(frozen=True)

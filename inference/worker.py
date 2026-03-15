@@ -72,6 +72,7 @@ def _build_shard() -> ModelShard:
 async def lifespan(app: FastAPI):
     global shard, tokenizer, http_client
 
+    torch.set_num_threads(2)
     shard = _build_shard()
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     http_client = httpx.AsyncClient(timeout=httpx.Timeout(120.0))
