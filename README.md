@@ -68,6 +68,18 @@ To run benchmarks and aid result visualization, we are using Streamlit dashboard
 streamlit run benchmark/dashboard.py
 ```
 
+## Infrastructure Provisioning
+
+1. Install Terraform CLI and Google Cloud CLI, then authenticate
+2. Create `infrastructure/terraform.tfvars` with `project_id`, `region`, and `zone`
+3. Run 
+```
+cd infrastructure
+terraform init
+terraform apply
+./scripts/deploy-app.sh
+```
+   
 ## Planned Research Variables
 
 ### Number of nodes

@@ -57,10 +57,10 @@ resource "google_compute_instance" "gateways" {
   }
 
   metadata = {
-    ssh-keys = "${var.ssh_user}:${file(var.ssh_public_key_path)}"
+    ssh-keys = "${var.ssh_user}:${file(pathexpand(var.ssh_public_key_path))}"
   }
 
-  metadata_startup_script = file("${path.module}/scripts/setup-docker.sh")
+  metadata_startup_script = file("${path.module}/scripts/setup-vm.sh")
 }
 
 # Worker VMs
@@ -86,8 +86,8 @@ resource "google_compute_instance" "workers" {
   }
 
   metadata = {
-    ssh-keys = "${var.ssh_user}:${file(var.ssh_public_key_path)}"
+    ssh-keys = "${var.ssh_user}:${file(pathexpand(var.ssh_public_key_path))}"
   }
 
-  metadata_startup_script = file("${path.module}/scripts/setup-docker.sh")
+  metadata_startup_script = file("${path.module}/scripts/setup-vm.sh")
 }

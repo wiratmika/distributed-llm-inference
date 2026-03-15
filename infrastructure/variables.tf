@@ -18,7 +18,7 @@ variable "zone" {
 variable "machine_type" {
   description = "VM machine type"
   type        = string
-  default     = "n1-standard-2"
+  default     = "e2-highmem-2"
 }
 
 variable "ssh_user" {
@@ -33,7 +33,3 @@ variable "ssh_public_key_path" {
   default     = "~/.ssh/gcp_key.pub"
 }
 
-variable "github_repo" {
-  description = "GitHub repository URL"
-  type        = string
-}
