@@ -28,7 +28,7 @@ def run_config(
         for i in range(config.warmup_runs):
             if progress_callback:
                 progress_callback(
-                    i, total_steps, f"Warmup {i + 1}/{config.warmup_runs}"
+                    i, total_steps, f"Gateway: {gateway_url} - Warmup {i + 1}/{config.warmup_runs}"
                 )
             _fire_requests(
                 client,
@@ -47,7 +47,7 @@ def run_config(
                 progress_callback(
                     config.warmup_runs + i,
                     total_steps,
-                    f"Measurement {i + 1}/{config.measurement_runs}",
+                    f"Gateway: {gateway_url} - Measurement {i + 1}/{config.measurement_runs}",
                 )
             responses = _fire_requests(
                 client,
