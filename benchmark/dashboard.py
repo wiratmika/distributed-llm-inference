@@ -9,7 +9,12 @@ from benchmark.config import (
     EXPERIMENTS,
     PROMPTS,
 )
-from benchmark.io import load_all_results, results_to_dataframe, save_result
+from benchmark.io import (
+    load_all_results,
+    load_result,
+    results_to_dataframe,
+    save_result,
+)
 from benchmark.metrics import ConfigResult
 from benchmark.runner import run_config
 
@@ -55,9 +60,15 @@ def page_run_benchmark(df: pd.DataFrame) -> None:
         "http://localhost:8000",
     )
     with st.expander("Gateway URLs", expanded=True):
-        url_1 = st.text_input("1 worker node", "", placeholder="http://gateway-1node:8000")
-        url_2 = st.text_input("2 worker nodes", "", placeholder="http://gateway-2node:8000")
-        url_4 = st.text_input("4 worker nodes", "", placeholder="http://gateway-4node:8000")
+        url_1 = st.text_input(
+            "1 worker node", "", placeholder="http://gateway-1node:8000"
+        )
+        url_2 = st.text_input(
+            "2 worker nodes", "", placeholder="http://gateway-2node:8000"
+        )
+        url_4 = st.text_input(
+            "4 worker nodes", "", placeholder="http://gateway-4node:8000"
+        )
 
     gateway_urls_map: dict[int, str] = {}
     if url_1:
@@ -111,14 +122,22 @@ def page_run_benchmark(df: pd.DataFrame) -> None:
     status = st.empty()
     log_area = st.empty()
 
-    total_steps = sum(
-        c.warmup_runs + c.measurement_runs for c in configs
-    )
+    configs_to_run = []
+    for cfg in configs:
+        if not (RESULTS_DIR / f"{cfg.name}.json").exists():
+            configs_to_run.append(cfg)
+
+    total_steps = sum(c.warmup_runs + c.measurement_runs for c in configs_to_run)
     completed_steps = 0
 
     all_results: list[ConfigResult] = []
 
     for i, cfg in enumerate(configs):
+        if (RESULTS_DIR / f"{cfg.name}.json").exists():
+            all_results.append(load_result(RESULTS_DIR / f"{cfg.name}.json"))
+            log_area.caption(f":fast_forward: {cfg.name} — skipped (already exists)")
+            continue
+
         prompt = PROMPTS.get(cfg.input_length, PROMPTS[32])
 
         def _on_progress(
@@ -130,11 +149,9 @@ def page_run_benchmark(df: pd.DataFrame) -> None:
         ) -> None:
             nonlocal completed_steps
             completed_steps += 1
-            progress.progress(min(completed_steps / total_steps, 1.0))
-            status.text(
-                f"Config {_cfg_idx + 1}/{len(configs)} "
-                f"**{_cfg_name}** — {msg}"
-            )
+            if total_steps > 0:
+                progress.progress(min(completed_steps / total_steps, 1.0))
+            status.text(f"Config {_cfg_idx + 1}/{len(configs)} **{_cfg_name}** — {msg}")
 
         try:
             gateway_url = gateway_urls_map.get(cfg.nodes, default_gateway_url)
@@ -147,11 +164,12 @@ def page_run_benchmark(df: pd.DataFrame) -> None:
                 progress_callback=_on_progress,
             )
             save_result(result)
+
             all_results.append(result)
             log_area.caption(
                 f":white_check_mark: {cfg.name} — "
                 f"median {result.latency_median:.3f}s, "
-                f"{result.throughput_median:.1f} tok/s"
+                f"{result.overall_throughput:.1f} tok/s"
             )
         except Exception as exc:
             st.error(f"**{cfg.name}** failed: {exc}")
@@ -173,7 +191,7 @@ def page_run_benchmark(df: pd.DataFrame) -> None:
                 "Clients": r.concurrent_clients,
                 "Latency (median)": f"{r.latency_median:.3f} s",
                 "TTFT (median)": f"{r.ttft_median:.3f} s",
-                "Throughput (median)": f"{r.throughput_median:.1f} tok/s",
+                "System Throughput": f"{r.overall_throughput:.1f} tok/s",
             }
         )
     st.dataframe(pd.DataFrame(rows), use_container_width=True)
@@ -356,12 +374,7 @@ PAGES = {
 def main() -> None:
     st.set_page_config(page_title="LLM Inference Benchmark", layout="wide")
 
-    results_dir_input = st.sidebar.text_input(
-        "Results directory", value=str(RESULTS_DIR)
-    )
-    results_dir = pathlib.Path(results_dir_input)
-
-    results = load_all_results(results_dir)
+    results = load_all_results(RESULTS_DIR)
     df = results_to_dataframe(results)
 
     page = st.sidebar.radio("Page", list(PAGES.keys()))

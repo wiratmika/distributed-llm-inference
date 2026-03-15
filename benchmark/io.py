@@ -10,19 +10,11 @@ from benchmark.metrics import ConfigResult, NodeMetrics, RunMetrics
 RESULTS_DIR = pathlib.Path("results")
 
 
-def _experiment_dir_name(experiment_id: int, experiment_name: str) -> str:
-    slug = experiment_name.lower().replace(" ", "-")
-    return f"exp{experiment_id}_{slug}"
-
-
 def save_result(
     result: ConfigResult, directory: pathlib.Path = RESULTS_DIR
 ) -> pathlib.Path:
-    subdir = directory / _experiment_dir_name(
-        result.experiment_id, result.experiment_name
-    )
-    subdir.mkdir(parents=True, exist_ok=True)
-    path = subdir / f"{result.config_name}.json"
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{result.config_name}.json"
     with open(path, "w") as f:
         json.dump(asdict(result), f, indent=2)
     return path
@@ -65,7 +57,7 @@ def from_dict(data: dict[str, Any]) -> ConfigResult:
         runs=runs,
         latency_median=data.get("latency_median", 0.0),
         ttft_median=data.get("ttft_median", 0.0),
-        throughput_median=data.get("throughput_median", 0.0),
+        overall_throughput=data.get("overall_throughput", 0.0),
         peak_memory_per_node={
             int(k): v for k, v in data.get("peak_memory_per_node", {}).items()
         },

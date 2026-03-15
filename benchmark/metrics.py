@@ -42,7 +42,8 @@ class ConfigResult:
     runs: list[RunMetrics] = field(default_factory=list)
     latency_median: float = 0.0
     ttft_median: float = 0.0
-    throughput_median: float = 0.0
+    overall_throughput: float = 0.0
+
     peak_memory_per_node: dict[int, float] = field(default_factory=dict)  # MB
 
     def compute_summary(self) -> None:
@@ -51,9 +52,16 @@ class ConfigResult:
 
         self.latency_median = statistics.median(r.end_to_end_latency for r in self.runs)
         self.ttft_median = statistics.median(r.time_to_first_token for r in self.runs)
-        self.throughput_median = statistics.median(r.tokens_per_second for r in self.runs)
+
+        min_start = min(r.timestamp - r.end_to_end_latency for r in self.runs)
+        max_end = max(r.timestamp for r in self.runs)
+        
+        total_tokens = sum(r.tokens_generated for r in self.runs)
+        duration = max_end - min_start
+        self.overall_throughput = total_tokens / duration
 
         mem: dict[int, float] = {}
+
         for run in self.runs:
             for nm in run.node_metrics:
                 if nm.node_id not in mem or nm.peak_memory_rss > mem[nm.node_id]:
