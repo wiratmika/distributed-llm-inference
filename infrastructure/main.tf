@@ -27,7 +27,7 @@ resource "google_compute_firewall" "llm_firewall" {
 
   allow {
     protocol = "tcp"
-    ports    = ["8000-8003", "22"]
+    ports    = ["8000-8007", "22"]
   }
 
   source_ranges = ["0.0.0.0/0"]
@@ -42,10 +42,16 @@ resource "google_compute_instance" "gateways" {
   zone         = var.zone
   tags         = ["llm-inference"]
 
+  scheduling {
+    provisioning_model  = "SPOT"
+    automatic_restart   = false
+    on_host_maintenance = "TERMINATE"
+  }
+
   boot_disk {
     initialize_params {
       image = "ubuntu-os-cloud/ubuntu-2204-lts"
-      size  = 50
+      size  = var.boot_disk_size_gb
     }
   }
 
@@ -71,10 +77,16 @@ resource "google_compute_instance" "workers" {
   zone         = var.zone
   tags         = ["llm-inference"]
 
+  scheduling {
+    provisioning_model  = "SPOT"
+    automatic_restart   = false
+    on_host_maintenance = "TERMINATE"
+  }
+
   boot_disk {
     initialize_params {
       image = "ubuntu-os-cloud/ubuntu-2204-lts"
-      size  = 50
+      size  = var.boot_disk_size_gb
     }
   }
 

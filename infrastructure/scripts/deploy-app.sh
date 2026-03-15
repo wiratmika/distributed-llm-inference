@@ -3,7 +3,7 @@
 set -eo pipefail
 
 REPO_URL="https://github.com/wiratmika/distributed-llm-inference.git"
-PROJECT_DIR="$HOME/distributed-llm-inference"
+PROJECT_DIR='$HOME/distributed-llm-inference'
 ZONE="us-west1-a"
 
 run_on_vm() {
@@ -19,16 +19,17 @@ ALL_VMS="gateway-1 gateway-2 gateway-3 worker-1 worker-2 worker-3 worker-4 worke
 
 for vm in $ALL_VMS; do  
   run_on_vm "$vm" "
-    sudo ln -sf /usr/bin/python3.11 /usr/bin/python3 || true
+    PYTHON_BIN=\$(command -v python3.11 || command -v python3)
+    sudo ln -sf \"\$PYTHON_BIN\" /usr/bin/python3 || true
     
-    if [ -d $PROJECT_DIR ]; then
-      cd $PROJECT_DIR && git pull
+    if [ -d \"$PROJECT_DIR\" ]; then
+      cd \"$PROJECT_DIR\" && git pull
     else
-      git clone $REPO_URL $PROJECT_DIR
+      git clone $REPO_URL \"$PROJECT_DIR\"
     fi
     
-    cd $PROJECT_DIR
-    /usr/local/bin/poetry env use /usr/bin/python3.11
+    cd \"$PROJECT_DIR\"
+    /usr/local/bin/poetry env use \"\$PYTHON_BIN\"
     /usr/local/bin/poetry install --no-root
     
     pkill -f uvicorn || true
@@ -38,7 +39,7 @@ done
 wait
 
 get_ip() {
-    gcloud compute instances describe $1 --zone=$ZONE --format='get(networkInterfaces[0].networkIP)'
+  gcloud compute instances describe "$1" --zone="$ZONE" --format='get(networkInterfaces[0].networkIP)'
 }
 
 echo "Internal IPs:"
