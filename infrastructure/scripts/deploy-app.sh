@@ -15,7 +15,7 @@ run_on_vm() {
     --command="$command"
 }
 
-ALL_VMS="gateway-1 gateway-2 gateway-3 worker-1 worker-2 worker-3 worker-4 worker-5 worker-6 worker-7"
+ALL_VMS="gateway worker-1 worker-2 worker-3 worker-4 worker-5 worker-6 worker-7"
 
 for vm in $ALL_VMS; do  
   run_on_vm "$vm" "
@@ -43,9 +43,7 @@ get_ip() {
 }
 
 echo "Internal IPs:"
-G1_IP=$(get_ip gateway-1)
-G2_IP=$(get_ip gateway-2)
-G3_IP=$(get_ip gateway-3)
+G1_IP=$(get_ip gateway)
 
 W1_IP=$(get_ip worker-1)
 W2_IP=$(get_ip worker-2)
@@ -66,16 +64,16 @@ start_service() {
 
 # Group 1: 1 worker
 start_service "worker-1" "NUM_NODES=1 RANK=0" "inference.worker:app" 8001
-start_service "gateway-1" "WORKER_URL=http://$W1_IP:8001" "inference.gateway:app" 8000
 
 # Group 2: 2 workers
 start_service "worker-3" "NUM_NODES=2 RANK=1" "inference.worker:app" 8003
 start_service "worker-2" "NUM_NODES=2 RANK=0 NEXT_NODE_URL=http://$W3_IP:8003" "inference.worker:app" 8002
-start_service "gateway-2" "WORKER_URL=http://$W2_IP:8002" "inference.gateway:app" 8000
 
 # Group 3: 4 workers
 start_service "worker-7" "NUM_NODES=4 RANK=3" "inference.worker:app" 8007
 start_service "worker-6" "NUM_NODES=4 RANK=2 NEXT_NODE_URL=http://$W7_IP:8007" "inference.worker:app" 8006
 start_service "worker-5" "NUM_NODES=4 RANK=1 NEXT_NODE_URL=http://$W6_IP:8006" "inference.worker:app" 8005
 start_service "worker-4" "NUM_NODES=4 RANK=0 NEXT_NODE_URL=http://$W5_IP:8005" "inference.worker:app" 8004
-start_service "gateway-3" "WORKER_URL=http://$W4_IP:8004" "inference.gateway:app" 8000
+
+# Single global gateway routes requests based on requested node count (1/2/4)
+start_service "gateway" "WORKER_URL_1=http://$W1_IP:8001 WORKER_URL_2=http://$W2_IP:8002 WORKER_URL_4=http://$W4_IP:8004" "inference.gateway:app" 8000

@@ -8,17 +8,18 @@ from benchmark.metrics import NodeMetrics, RunMetrics
 def _fire_requests(
     client: httpx.Client,
     gateway_url: str,
+    nodes: int,
     prompt: str,
     max_new_tokens: int,
     concurrent_clients: int,
 ) -> list[dict]:
     """Fire concurrent_clients requests; use a thread pool when > 1."""
     if concurrent_clients <= 1:
-        return [_send_request(client, gateway_url, prompt, max_new_tokens)]
+        return [_send_request(client, gateway_url, nodes, prompt, max_new_tokens)]
 
     with ThreadPoolExecutor(max_workers=concurrent_clients) as pool:
         futures = [
-            pool.submit(_send_request, client, gateway_url, prompt, max_new_tokens)
+            pool.submit(_send_request, client, gateway_url, nodes, prompt, max_new_tokens)
             for _ in range(concurrent_clients)
         ]
         return [f.result() for f in futures]
@@ -27,13 +28,14 @@ def _fire_requests(
 def _send_request(
     client: httpx.Client,
     gateway_url: str,
+    nodes: int,
     prompt: str,
     max_new_tokens: int,
 ) -> dict:
     """Send a single /generate request and return the parsed JSON body."""
     resp = client.post(
         f"{gateway_url.rstrip('/')}/generate",
-        json={"prompt": prompt, "max_new_tokens": max_new_tokens},
+        json={"prompt": prompt, "max_new_tokens": max_new_tokens, "nodes": nodes},
     )
     resp.raise_for_status()
     return resp.json()

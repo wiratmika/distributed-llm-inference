@@ -15,6 +15,7 @@ class NodeTiming(BaseModel):
 class GenerateRequest(BaseModel):
     prompt: str
     max_new_tokens: Optional[int] = None
+    nodes: int = 1
 
 
 class GenerateResponse(BaseModel):

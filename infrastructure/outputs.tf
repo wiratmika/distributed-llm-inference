@@ -33,8 +33,7 @@ output "worker_internal_ips" {
 output "ssh_commands" {
   value = {
     gateways = [
-      for i in range(3) :
-      "gcloud compute ssh gateway-${i + 1} --zone=${var.zone}"
+      "gcloud compute ssh gateway --zone=${var.zone}"
     ]
     workers = [
       for i in range(7) :

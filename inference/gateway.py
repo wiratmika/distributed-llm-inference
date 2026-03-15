@@ -24,8 +24,16 @@ from .schemas import GenerateRequest, GenerateResponse, NodeTiming
 logger = logging.getLogger(__name__)
 
 MODEL_NAME: str = os.environ.get("MODEL_NAME", "gpt2")
-WORKER_URL: str = os.environ.get("WORKER_URL", "http://localhost:8001")
+WORKER_URL_1: str = os.environ.get("WORKER_URL_1", "http://localhost:8001")
+WORKER_URL_2: str = os.environ.get("WORKER_URL_2", "http://localhost:8002")
+WORKER_URL_4: str = os.environ.get("WORKER_URL_4", "http://localhost:8004")
 MAX_NEW_TOKENS: int = int(os.environ.get("MAX_NEW_TOKENS", "50"))
+
+WORKER_URLS: dict[int, str] = {
+    1: WORKER_URL_1,
+    2: WORKER_URL_2,
+    4: WORKER_URL_4,
+}
 
 tokenizer = None
 http_client: Optional[httpx.AsyncClient] = None
@@ -36,7 +44,7 @@ async def lifespan(app: FastAPI):
     global tokenizer, http_client
 
     torch.set_num_threads(2)
-    logger.info("Gateway starting – model=%s, worker=%s", MODEL_NAME, WORKER_URL)
+    logger.info("Gateway starting – model=%s, routes=%s", MODEL_NAME, WORKER_URLS)
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     http_client = httpx.AsyncClient(timeout=httpx.Timeout(300.0))
 
@@ -48,9 +56,10 @@ app = FastAPI(title="Distributed LLM Gateway", lifespan=lifespan)
 
 async def _pipeline_forward(
     input_ids: List[List[int]],
+    worker_url: str,
 ) -> tuple[torch.Tensor, List[NodeTiming]]:
     payload = {"input_ids": input_ids}
-    resp = await http_client.post(f"{WORKER_URL}/forward", json=payload)
+    resp = await http_client.post(f"{worker_url}/forward", json=payload)
     if resp.status_code != 200:
         raise HTTPException(
             status_code=502,
@@ -71,6 +80,7 @@ async def _pipeline_forward(
 
 async def generate_tokens(
     prompt: str,
+    nodes: int,
     max_new_tokens: int | None = None,
 ) -> tuple[str, int, float, List[NodeTiming]]:
     """Auto-regressive generation driven by the gateway.
@@ -86,10 +96,16 @@ async def generate_tokens(
     ttft_ms = 0.0
     tokens_generated = 0
     accumulated: dict[int, dict] = {}
+    worker_url = WORKER_URLS.get(nodes)
+    if not worker_url:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported nodes={nodes}. Allowed values: 1, 2, 4",
+        )
 
     for step in range(gen_limit):
         ids_list = input_ids.tolist()
-        logits, step_timings = await _pipeline_forward(ids_list)
+        logits, step_timings = await _pipeline_forward(ids_list, worker_url)
 
         if step == 0:
             ttft_ms = (time.perf_counter() - time_start) * 1000
@@ -130,7 +146,7 @@ async def generate_tokens(
 async def generate(req: GenerateRequest):
     time_start = time.perf_counter()
     output, tokens_generated, ttft_ms, node_timings = await generate_tokens(
-        req.prompt, req.max_new_tokens
+        req.prompt, req.nodes, req.max_new_tokens
     )
     elapsed = (time.perf_counter() - time_start) * 1000
     tps = (tokens_generated / (elapsed / 1000)) if elapsed > 0 else 0.0
@@ -151,5 +167,5 @@ async def health():
         "status": "ok",
         "role": "gateway",
         "model": MODEL_NAME,
-        "worker_url": WORKER_URL,
+        "worker_routes": WORKER_URLS,
     }

@@ -36,8 +36,8 @@ resource "google_compute_firewall" "llm_firewall" {
 
 # Gateway VMs
 resource "google_compute_instance" "gateways" {
-  count        = 3
-  name         = "gateway-${count.index + 1}"
+  count        = 1
+  name         = "gateway"
   machine_type = var.machine_type
   zone         = var.zone
   tags         = ["llm-inference"]

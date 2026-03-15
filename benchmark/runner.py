@@ -33,6 +33,7 @@ def run_config(
             _fire_requests(
                 client,
                 gateway_url,
+                config.nodes,
                 prompt,
                 config.generation_length,
                 config.concurrent_clients,
@@ -52,6 +53,7 @@ def run_config(
             responses = _fire_requests(
                 client,
                 gateway_url,
+                config.nodes,
                 prompt,
                 config.generation_length,
                 config.concurrent_clients,
