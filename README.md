@@ -61,23 +61,8 @@ curl -X POST http://localhost:8000/generate \
 ./launch_local.sh 2 gpt2-xl    # 2 nodes, gpt2-xl model
 ```
 
-## Running benchmarks
-
-The benchmark runner script can be invoked either from the CLI or programmatically. `GATEWAY_URL` environment variable defaults to `http://localhost:8000`.
-
-CLI:
-```sh
-python -m benchmark.runner --gateway-url http://localhost:8000 --experiment 1
-```
-
-Programmatically:
-```python
-from benchmark.runner import run_config
-result = run_config(url, config, prompt)
-```
-
-## Visualizing results
-To aid visualization, Streamlit dashboard is also provided.
+## Dashboard
+To run benchmarks and aid result visualization, we are using Streamlit dashboard.
 
 ```sh
 streamlit run benchmark/dashboard.py
@@ -104,11 +89,11 @@ Simulates real traffic.
 - Model: gpt2-xl (1.5B params, 48 layers)
 - Generation length: 50 tokens, enough to capture autoregressive steady-state behavior without making runs long
 - Sampling: Greedy (argmax) for deterministic result
-- Planned VM: GCP `e2-standard-4` (4 vCPU, 16 GB RAM), enough vCPU for GPT-2 XL inference and RAM for model, activations, KV cache, and other overheads
+- Planned VM: GCP `e2-highmem-2` (2 vCPU, 16 GB RAM), enough vCPU for GPT-2 XL inference and RAM for model, activations, KV cache, and other overheads
 - Network topology: Same availability zone to minimize network variance
-- Torch: Running on inference mode with fixed 4 number of threads
-- Warmup runs: 3 (discarded)
-- Measurement runs: 20 (median, p95)
+- Torch: Running on inference mode with 2 threads
+- Warmup runs: 1 (discarded)
+- Measurement runs: 3 (median)
 
 ## Planned Metrics
 - End-to-end latency: Wall clock from request sent to response received at the client

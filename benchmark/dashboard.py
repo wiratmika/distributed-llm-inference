@@ -50,10 +50,22 @@ def page_overview(df: pd.DataFrame) -> None:
 def page_run_benchmark(df: pd.DataFrame) -> None:
     st.header("Run Benchmark")
 
-    gateway_url = st.text_input(
-        "Gateway URL",
+    default_gateway_url = st.text_input(
+        "Default Gateway URL",
         "http://localhost:8000",
     )
+    with st.expander("Gateway URLs", expanded=True):
+        url_1 = st.text_input("1 worker node", "", placeholder="http://gateway-1node:8000")
+        url_2 = st.text_input("2 worker nodes", "", placeholder="http://gateway-2node:8000")
+        url_4 = st.text_input("4 worker nodes", "", placeholder="http://gateway-4node:8000")
+
+    gateway_urls_map: dict[int, str] = {}
+    if url_1:
+        gateway_urls_map[1] = url_1
+    if url_2:
+        gateway_urls_map[2] = url_2
+    if url_4:
+        gateway_urls_map[4] = url_4
 
     exp_labels = {
         f"{e.id}: {e.name} - {e.question}": e.id for e in EXPERIMENTS.values()
@@ -125,6 +137,7 @@ def page_run_benchmark(df: pd.DataFrame) -> None:
             )
 
         try:
+            gateway_url = gateway_urls_map.get(cfg.nodes, default_gateway_url)
             result = run_config(
                 gateway_url,
                 cfg,
