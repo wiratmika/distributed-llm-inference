@@ -44,6 +44,7 @@ resource "google_compute_instance" "gateways" {
 
   scheduling {
     provisioning_model  = "SPOT"
+    preemptible         = true
     automatic_restart   = false
     on_host_maintenance = "TERMINATE"
   }
@@ -79,6 +80,7 @@ resource "google_compute_instance" "workers" {
 
   scheduling {
     provisioning_model  = "SPOT"
+    preemptible         = true
     automatic_restart   = false
     on_host_maintenance = "TERMINATE"
   }
