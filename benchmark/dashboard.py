@@ -140,8 +140,6 @@ def page_run_benchmark(df: pd.DataFrame) -> None:
                 gateway_url,
                 cfg,
                 prompt,
-                experiment_id=experiment.id,
-                experiment_name=experiment.name,
                 progress_callback=_on_progress,
             )
             save_result(result)

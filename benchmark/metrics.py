@@ -37,8 +37,6 @@ class ConfigResult:
     concurrent_clients: int
     model: str
     generation_length: int
-    experiment_id: int = 0
-    experiment_name: str = ""
 
     runs: list[RunMetrics] = field(default_factory=list)
     latency_median: float = 0.0

@@ -18,19 +18,19 @@ variable "zone" {
 variable "machine_type" {
   description = "VM machine type"
   type        = string
-  default     = "e2-highmem-2"
+  default     = "c4d-highmem-2"
 }
 
 variable "boot_disk_size_gb" {
   description = "Boot disk size in GB"
   type        = number
-  default     = 100
+  default     = 50
 }
 
 variable "model_name" {
   description = "Model name used by gateway and workers"
   type        = string
-  default     = "gpt2-xl"
+  default     = "gpt2-medium"
 }
 
 variable "ssh_user" {

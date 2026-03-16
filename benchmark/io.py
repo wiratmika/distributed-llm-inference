@@ -53,8 +53,6 @@ def from_dict(data: dict[str, Any]) -> ConfigResult:
         concurrent_clients=data["concurrent_clients"],
         model=data["model"],
         generation_length=data["generation_length"],
-        experiment_id=data.get("experiment_id", 0),
-        experiment_name=data.get("experiment_name", ""),
         runs=runs,
         latency_median=data.get("latency_median", 0.0),
         ttft_median=data.get("ttft_median", 0.0),
@@ -75,7 +73,6 @@ def results_to_dataframe(
         for i, run in enumerate(result.runs):
             rows.append(
                 {
-                    "experiment": result.experiment_name,
                     "name": result.config_name,
                     "nodes": result.nodes,
                     "sequence_length": result.input_length,

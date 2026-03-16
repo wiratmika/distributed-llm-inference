@@ -100,7 +100,7 @@ Simulates real traffic.
 - Model: gpt2-xl (1.5B params, 48 layers)
 - Generation length: 50 tokens, enough to capture autoregressive steady-state behavior without making runs long
 - Sampling: Greedy (argmax) for deterministic result
-- Planned VM: GCP `e2-highmem-2` (2 vCPU, 16 GB RAM), enough vCPU for GPT-2 XL inference and RAM for model, activations, KV cache, and other overheads
+- Planned VM: GCP `c2d-highmem-2` (2 vCPU, 16 GB RAM), enough vCPU for GPT-2 XL inference and RAM for model, activations, KV cache, and other overheads
 - Network topology: Same availability zone to minimize network variance
 - Torch: Running on inference mode with 2 threads
 - Warmup runs: 1 (discarded)

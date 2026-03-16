@@ -17,13 +17,11 @@ def run_config(
     gateway_url: str,
     config: RunConfig,
     prompt: str,
-    experiment_id: int = 0,
-    experiment_name: str = "",
     progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> ConfigResult:
     total_steps = config.warmup_runs + config.measurement_runs
 
-    with httpx.Client(timeout=httpx.Timeout(300.0)) as client:
+    with httpx.Client(timeout=httpx.Timeout(6000.0)) as client:
         # Warmup
         for i in range(config.warmup_runs):
             if progress_callback:
@@ -69,8 +67,6 @@ def run_config(
         concurrent_clients=config.concurrent_clients,
         model=config.model,
         generation_length=config.generation_length,
-        experiment_id=experiment_id,
-        experiment_name=experiment_name,
         runs=all_runs,
     )
     result.compute_summary()
