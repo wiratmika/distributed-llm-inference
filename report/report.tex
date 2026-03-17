@@ -90,6 +90,20 @@ The original plan targeted larger-model experiments, including GPT-2 XL, to more
 \subsection{Primary Results}
 Table~\ref{tab:latency_c1} summarizes median single-client latency and TTFT. Increasing nodes consistently increases latency for all prompt lengths.
 
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\linewidth]{charts/1-latency-node-count.jpg}
+\caption{Latency vs. node count with one line per input length (32, 128, 512), including run-level standard deviation error bars.}
+\label{fig:latency_node_count}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\linewidth]{charts/2-ttft-node-count.jpg}
+\caption{TTFT vs. node count with one line per input length (32, 128, 512), including run-level standard deviation error bars.}
+\label{fig:ttft_node_count}
+\end{figure}
+
 \begin{table}[ht]
 \caption{Single-client median latency and TTFT (seconds)}
 \label{tab:latency_c1}
@@ -113,7 +127,7 @@ Nodes & Input tokens & Concurrency & Latency & TTFT \\
 \end{tabular}
 \end{table}
 
-Relative to one node, two-node latency increases by 20.5\% (32-token), 27.3\% (128-token), and 24.9\% (512-token). Four-node latency increases by 60.2\%, 77.1\%, and 75.3\%, respectively. Under this implementation, added communication dominates reduced per-stage compute.
+Relative to one node, two-node latency increases by 20.5\% (32-token), 27.3\% (128-token), and 24.9\% (512-token). Four-node latency increases by 60.2\%, 77.1\%, and 75.3\%, respectively. Figures~\ref{fig:latency_node_count} and~\ref{fig:ttft_node_count} visualize these trends. Under this implementation, added communication dominates reduced per-stage compute.
 
 To make run-level stability explicit, Table~\ref{tab:raw_variability} reports mean and standard deviation per configuration.
 
@@ -146,6 +160,13 @@ Median network-time share of wall-clock latency increases sharply with node coun
 \item 4 nodes: 45.0--51.6\%
 \end{itemize}
 Conversely, compute share decreases from roughly 68--77\% (1 node) to 39--48\% (4 nodes). This quantitatively supports the communication-bound diagnosis for multi-node runs.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\linewidth]{charts/3-time-share-breakdown.jpg}
+\caption{Stacked wall-clock time-share decomposition (compute, serialization, network, residual) for each \{input length, node count\} configuration at concurrency 1.}
+\label{fig:time_share_breakdown}
+\end{figure}
 
 Table~\ref{tab:raw_share} integrates the raw decomposition values used for this claim.
 
@@ -189,6 +210,13 @@ Input tokens & Concurrency & 1 node & 2 nodes & 4 nodes \\
 \end{table}
 
 Higher concurrency narrows the throughput gap between node counts, but does not reverse ordering in this dataset: 1-node remains highest, while 4-node approaches 2-node at 3 concurrent clients. We therefore explicitly report a negative result: this implementation did not achieve higher throughput with increased node count. This suggests partial pipeline utilization gains under concurrency, but not enough to overcome communication and serialization costs.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\linewidth]{charts/4-throughput-concurrency.jpg}
+\caption{Throughput vs. concurrency at input length 128, with one line per node count.}
+\label{fig:throughput_concurrency}
+\end{figure}
 Table~\ref{tab:raw_tput_rel} presents throughput deltas relative to the 1-node baseline, showing that the deficit shrinks with concurrency but remains negative.
 
 \begin{table}[ht]
@@ -208,6 +236,13 @@ Input tokens & Concurrency & 2 nodes vs 1 node & 4 nodes vs 1 node \\
 
 \subsection{Memory Observations}
 Peak RSS per node does not decrease monotonically with more shards in these runs; several first-stage workers show higher memory than expected under larger node counts. This likely reflects framework/runtime overhead, duplicated model components (e.g., embeddings/heads depending on shard placement), and Python process overhead. A deeper memory attribution study is needed before claiming linear sharding benefits.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\linewidth]{charts/5-per-node-peak-rss.jpg}
+\caption{Per-node peak RSS across node counts 1, 2, and 4 for the representative setting (input length 128, concurrency 1).}
+\label{fig:peak_rss}
+\end{figure}
 
 \section{Conclusion}
 This project demonstrates an end-to-end distributed LLM inference prototype using layer-wise pipeline partitioning over HTTP in a CPU-only environment. The implementation successfully supports 1/2/4-node sharding, detailed telemetry, and reproducible benchmarking; however, measured performance indicates that communication and serialization overhead dominate benefits from parallel stage compute in the tested regime. Single-request latency increases with node count across all prompt lengths, and concurrency provides only partial mitigation. Critically, we did not achieve the originally hoped throughput scaling with additional nodes under this setup. The study should be interpreted as a constrained but practical baseline rather than a final verdict on distributed inference, since unavailable high-bandwidth instance classes and timeout pressure prevented the originally intended larger-model evaluation. Future work should focus on code and infrastructure optimization: reducing transport overhead (binary protocols, tensor compression, or shared-memory/RDMA options), improving scheduling and batching at the gateway, minimizing Python serialization overhead, and re-running the same protocol on larger models and stronger hardware to test whether conclusions change under less resource-constrained conditions.
