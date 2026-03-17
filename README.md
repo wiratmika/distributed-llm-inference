@@ -106,7 +106,7 @@ Simulates real traffic.
 - Warmup runs: 1 (discarded)
 - Measurement runs: 3 (median)
 
-## Planned Metrics
+## Metrics
 - End-to-end latency: Wall clock from request sent to response received at the client
 - Time to first token: Timestamp of first token minus request start
 - Tokens per second: `generated_tokens / end_to_end_time` for single client; `total_tokens_across_all_clients / wall_clock` for concurrent
@@ -116,52 +116,49 @@ Simulates real traffic.
 
 ## Experiment Design
 
-### Experiment 1 — Scaling
-Question: At what point does adding nodes help or hurt latency?
+### Parameter Values
 
-#### Parameter Values
+#### Group 1
 - Nodes: 1, 2, 4
-- Input length: 32, 256, 1024
+- Input length: 32, 128, 512
 - Concurrent clients: 1
 
-### Output
+#### Group 2
+- Nodes: 1, 2, 4
+- Input length: 128
+- Concurrent clients: 1, 4, 16
+
+### Research Questions
+
+#### 1 — Scaling
+At what point does adding nodes help or hurt latency?
+
 - Plot: Latency (p50, p95) vs. nodes, one line per input length
 - Expected: Short input (32) multi-node is always slower. Long input (1024) multi-node eventually wins.
 
-### Experiment 2 — Concurrency
-Question: Does pipeline parallelism actually utilize idle stages when multiple requests arrive concurrently?
-
-#### Parameter Values
-- Nodes: 1, 2, 4
-- Input length: 256
-- Concurrent clients: 1, 4, 16
+#### 2 — Time breakdown
+What fraction of wall-clock time is compute vs. serialization vs. network transfer vs. idle?
 
 ### Output
+- Plot: Stacked bar chart, compute / serialization / network / idle per node count
+- Measured on: GCP nodes via instrumentation in `worker.py` and `gateway.py`
+
+#### 3 — Concurrency
+Does pipeline parallelism actually utilize idle stages when multiple requests arrive concurrently?
+
 - Plot: Throughput (total tokens/sec) vs. nodes, one line per concurrency level
 - Expected: With 1 client, adding nodes hurts throughput. With 16 clients, adding nodes should improve throughput because pipeline stages overlap across requests.
 
-### Experiment 3 — Input sensitivity
-Question: How does input length affect the distribution trade-off?
+#### 4 — Input sensitivity
+How does input length affect the distribution trade-off?
 
-#### Parameter Values
-- Nodes: 1, 2, 4
-- Input length: 32, 256, 1024
-- Concurrent clients: 1
-
-### Output
 - Plot: TTFT vs. input length, one line per node count
 - Purpose: Prefill is a single compute-heavy pass. Longer input results in larger activation tensors but also more compute per stage. This reveals the compute-to-communication ratio.
 - Note: This reuses Experiment 1 data with a different metric (TTFT instead of end-to-end latency).
 
-### Experiment 4 — Memory
-Question: Does sharding actually reduce per-node memory?
+#### 5 — Memory
+Does sharding actually reduce per-node memory?
 
-#### Parameter Values
-- Nodes: 1, 2, 4
-- Input length: 1024
-- Concurrent clients: 1
-
-### Output
 - Plot: Peak RSS per node vs. node count
 - Expected: Roughly linear decrease. Single node ~6 GB, 4 nodes ~1.5 GB each.
 - Measured on: Each GCP VM via `psutil.Process().memory_info().rss`

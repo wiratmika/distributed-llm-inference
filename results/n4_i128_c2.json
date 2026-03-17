@@ -1,0 +1,229 @@
+{
+  "config_name": "n4_i128_c2",
+  "nodes": 4,
+  "input_length": 128,
+  "concurrent_clients": 2,
+  "model": "gpt2-medium",
+  "generation_length": 50,
+  "runs": [
+    {
+      "run_index": 0,
+      "end_to_end_latency": 284.1557,
+      "time_to_first_token": 5.458,
+      "total_network_time": 202.307,
+      "tokens_generated": 50,
+      "tokens_per_second": 0.17595986988823378,
+      "node_metrics": [
+        {
+          "node_id": 0,
+          "compute_time": 14.038431554003182,
+          "serialization_time": 0.07360323600005358,
+          "peak_memory_rss": 2643.109375
+        },
+        {
+          "node_id": 1,
+          "compute_time": 14.2705048480002,
+          "serialization_time": 0.11963736699726724,
+          "peak_memory_rss": 2484.44140625
+        },
+        {
+          "node_id": 2,
+          "compute_time": 14.12324012299996,
+          "serialization_time": 0.11819420899792021,
+          "peak_memory_rss": 2483.69140625
+        },
+        {
+          "node_id": 3,
+          "compute_time": 24.879742069002532,
+          "serialization_time": 4.087820993001515,
+          "peak_memory_rss": 1572.67578125
+        }
+      ],
+      "timestamp": 1773645135.460295
+    },
+    {
+      "run_index": 1,
+      "end_to_end_latency": 284.0104,
+      "time_to_first_token": 5.107600000000001,
+      "total_network_time": 201.57739999999998,
+      "tokens_generated": 50,
+      "tokens_per_second": 0.17604989113074732,
+      "node_metrics": [
+        {
+          "node_id": 0,
+          "compute_time": 14.055470630997661,
+          "serialization_time": 0.07708921700213978,
+          "peak_memory_rss": 2643.109375
+        },
+        {
+          "node_id": 1,
+          "compute_time": 14.115754149996974,
+          "serialization_time": 0.12041531400063832,
+          "peak_memory_rss": 2484.44140625
+        },
+        {
+          "node_id": 2,
+          "compute_time": 14.26567878899732,
+          "serialization_time": 0.12034703400786384,
+          "peak_memory_rss": 2483.69140625
+        },
+        {
+          "node_id": 3,
+          "compute_time": 24.803012333998595,
+          "serialization_time": 4.197258070997123,
+          "peak_memory_rss": 1572.67578125
+        }
+      ],
+      "timestamp": 1773645135.460316
+    },
+    {
+      "run_index": 2,
+      "end_to_end_latency": 280.7261,
+      "time_to_first_token": 5.4175,
+      "total_network_time": 199.7491,
+      "tokens_generated": 50,
+      "tokens_per_second": 0.178109552335889,
+      "node_metrics": [
+        {
+          "node_id": 0,
+          "compute_time": 14.033732920999682,
+          "serialization_time": 0.07325222500548989,
+          "peak_memory_rss": 2643.109375
+        },
+        {
+          "node_id": 1,
+          "compute_time": 14.288374764001674,
+          "serialization_time": 0.1194244090029315,
+          "peak_memory_rss": 2484.44140625
+        },
+        {
+          "node_id": 2,
+          "compute_time": 14.127550006000092,
+          "serialization_time": 0.11829272900649812,
+          "peak_memory_rss": 2483.69140625
+        },
+        {
+          "node_id": 3,
+          "compute_time": 24.312434922000648,
+          "serialization_time": 4.0302749759975995,
+          "peak_memory_rss": 1572.94921875
+        }
+      ],
+      "timestamp": 1773645416.261388
+    },
+    {
+      "run_index": 3,
+      "end_to_end_latency": 280.59590000000003,
+      "time_to_first_token": 5.0645,
+      "total_network_time": 199.0633,
+      "tokens_generated": 50,
+      "tokens_per_second": 0.1781921973913375,
+      "node_metrics": [
+        {
+          "node_id": 0,
+          "compute_time": 14.037527568002588,
+          "serialization_time": 0.07608062099370727,
+          "peak_memory_rss": 2643.109375
+        },
+        {
+          "node_id": 1,
+          "compute_time": 14.118862977002209,
+          "serialization_time": 0.11977519999800279,
+          "peak_memory_rss": 2484.44140625
+        },
+        {
+          "node_id": 2,
+          "compute_time": 14.282021244002863,
+          "serialization_time": 0.12024743499750912,
+          "peak_memory_rss": 2483.69140625
+        },
+        {
+          "node_id": 3,
+          "compute_time": 24.206071081001937,
+          "serialization_time": 4.052130454001599,
+          "peak_memory_rss": 1572.67578125
+        }
+      ],
+      "timestamp": 1773645416.261407
+    },
+    {
+      "run_index": 4,
+      "end_to_end_latency": 279.4395,
+      "time_to_first_token": 5.889399999999999,
+      "total_network_time": 199.4839,
+      "tokens_generated": 50,
+      "tokens_per_second": 0.17892960730319085,
+      "node_metrics": [
+        {
+          "node_id": 0,
+          "compute_time": 14.017335234997518,
+          "serialization_time": 0.07348164199811436,
+          "peak_memory_rss": 2765.58984375
+        },
+        {
+          "node_id": 1,
+          "compute_time": 14.252484441997694,
+          "serialization_time": 0.11901217099784844,
+          "peak_memory_rss": 2484.44140625
+        },
+        {
+          "node_id": 2,
+          "compute_time": 14.12818408000021,
+          "serialization_time": 0.1184635969957526,
+          "peak_memory_rss": 2483.69140625
+        },
+        {
+          "node_id": 3,
+          "compute_time": 23.342048721005085,
+          "serialization_time": 3.982026256001518,
+          "peak_memory_rss": 1572.94921875
+        }
+      ],
+      "timestamp": 1773645695.7589161
+    },
+    {
+      "run_index": 5,
+      "end_to_end_latency": 279.28990000000005,
+      "time_to_first_token": 5.5268999999999995,
+      "total_network_time": 198.5888,
+      "tokens_generated": 50,
+      "tokens_per_second": 0.17902544989990685,
+      "node_metrics": [
+        {
+          "node_id": 0,
+          "compute_time": 14.027364466000108,
+          "serialization_time": 0.07591922899791825,
+          "peak_memory_rss": 2765.58984375
+        },
+        {
+          "node_id": 1,
+          "compute_time": 14.122086624998701,
+          "serialization_time": 0.12005549900277401,
+          "peak_memory_rss": 2484.44140625
+        },
+        {
+          "node_id": 2,
+          "compute_time": 14.25130481299766,
+          "serialization_time": 0.12006539199956023,
+          "peak_memory_rss": 2483.69140625
+        },
+        {
+          "node_id": 3,
+          "compute_time": 23.242254648997914,
+          "serialization_time": 4.070953812998596,
+          "peak_memory_rss": 1572.94921875
+        }
+      ],
+      "timestamp": 1773645695.7589362
+    }
+  ],
+  "latency_median": 280.661,
+  "ttft_median": 5.43775,
+  "overall_throughput": 0.35525899432670344,
+  "peak_memory_per_node": {
+    "0": 2765.58984375,
+    "1": 2484.44140625,
+    "2": 2483.69140625,
+    "3": 1572.94921875
+  }
+}
