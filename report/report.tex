@@ -19,7 +19,7 @@ wmika@uw.edu}}
 \maketitle
 
 \begin{abstract}
-Large language model (LLM) inference is increasingly constrained by memory footprint and end-to-end latency, especially when deployment hardware is limited to commodity CPU virtual machines. This project studies whether layer-wise pipeline model parallelism over HTTP can make distributed inference practical in such constrained environments, and where communication overhead dominates potential compute gains. We implement a complete gateway-worker serving stack for GPT-2 Medium (355M) with contiguous layer sharding across 1, 2, and 4 nodes, instrumenting per-stage compute, serialization, network hop time, memory, time-to-first-token (TTFT), and end-to-end latency. Evaluation is performed on cloud VMs using 15 benchmark configurations spanning prompt lengths (32, 128, 512 tokens) and client concurrency (1, 2, 3), each with warmup and repeated measurements. Results show that in this implementation distributed execution consistently increases single-request latency (up to 77.1\% at 4 nodes for 128-token prompts), while the network share of wall-clock time ranges from 17.2\% to 51.6\% across configurations and grows with node count, indicating communication-bound behavior under the tested setup.
+Large language model (LLM) inference is increasingly constrained by memory footprint and end-to-end latency, especially when deployment hardware is limited to commodity CPU virtual machines. This project studies whether layer-wise pipeline model parallelism over HTTP can make distributed inference practical in such constrained environments, and where communication overhead dominates potential compute gains. We implement a complete gateway-worker serving stack for GPT-2 Medium (355M) with contiguous layer sharding across 1, 2, and 4 nodes, instrumenting per-stage compute, serialization, network hop time, memory, time-to-first-token (TTFT), and end-to-end latency. Evaluation is performed on cloud VMs using 15 benchmark configurations spanning prompt lengths (32, 128, 512 tokens) and client concurrency (1, 2, 3), each with warmup and repeated measurements. Results show that distributed execution consistently increases single-request latency (up to 77.1\% at 4 nodes for 128-token prompts), network share of wall-clock time grows from 17.2\% to 51.6\% with node count indicating communication-bound behavior, and per-node memory does not decrease proportionally with layer count due to fixed per-process runtime overhead and duplicated boundary components.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -43,7 +43,7 @@ The evaluation is organized around the following research questions:
 \item \textbf{Time breakdown}: What fraction of end-to-end latency is attributable to network transfer versus model compute?
 \item \textbf{Concurrency behavior}: Does higher request concurrency improve system-level throughput enough to offset distributed overhead?
 \item \textbf{Input-length sensitivity}: How does prompt length influence the communication-to-compute ratio in distributed runs?
-\item \textbf{Memory effects}: How does peak per-node memory change across different partitions?
+\item \textbf{Memory effects}: Does peak per-node RSS decrease proportionally with layer count as sharding increases, and what fixed overheads prevent linear scaling?
 \end{itemize}
 
 \section{Related Work}
@@ -116,7 +116,7 @@ Conversely, compute share decreases from roughly 68--77\% (1 node) to 39--48\% (
 \begin{figure}[ht]
 \centering
 \includegraphics[width=\linewidth]{charts/3-time-share-breakdown.jpg}
-\caption{Grouped wall-clock time-share decomposition (compute, serialization, network, residual) for each \{input length, node count\} configuration at concurrency 1.}
+\caption{Grouped wall-clock time-share decomposition (compute, serialization, network, residual) for each input length and node count configuration at concurrency 1.}
 \label{fig:time_share_breakdown}
 \end{figure}
 
@@ -148,9 +148,6 @@ Higher concurrency narrows the throughput gap between node counts, but does not 
 \end{figure}
 Throughput deltas relative to the 1-node baseline (Table~\ref{tab:raw_tput_rel} in the Appendix) confirm that the deficit shrinks with concurrency but remains negative in all configurations.
 
-\subsection{Memory Observations}
-Peak RSS per node does not decrease monotonically with more shards in these runs; several first-stage workers show higher memory than expected under larger node counts. This likely reflects framework/runtime overhead, duplicated model components (e.g., embeddings/heads depending on shard placement), and Python process overhead. A deeper memory attribution study is needed before claiming linear sharding benefits.
-
 \begin{figure}[ht]
 \centering
 \includegraphics[width=\linewidth]{charts/5-per-node-peak-rss.jpg}
@@ -158,10 +155,15 @@ Peak RSS per node does not decrease monotonically with more shards in these runs
 \label{fig:peak_rss}
 \end{figure}
 
-\section{Conclusion}
-This project demonstrates an end-to-end distributed LLM inference prototype using layer-wise pipeline partitioning over HTTP in a CPU-only environment. The implementation successfully supports 1/2/4-node sharding, detailed telemetry, and reproducible benchmarking; however, measured performance indicates that communication and serialization overhead dominate benefits from parallel stage compute in the tested regime. Single-request latency increases with node count across all prompt lengths, and while higher concurrency narrows the throughput gap between node counts, it does not reverse the ordering. Critically, we did not achieve the originally hoped throughput scaling with additional nodes under this setup. The study should be interpreted as a constrained but practical baseline rather than a final verdict on distributed inference, since unavailable high-bandwidth instance classes and timeout pressure prevented the originally intended larger-model evaluation.
+\subsection{Memory Observations}
+Peak RSS per node does not decrease monotonically with more shards. At 4 nodes, rank-0 RSS remains near 2,400 MB despite hosting only 6 transformer blocks, compared to 2,500 MB for the single-node run hosting all 24 blocks. We attribute this to two compounding factors. First, each worker process incurs a fixed Python/PyTorch runtime baseline of approximately 300--400 MB regardless of layer count, which dominates per-process memory when few layers are assigned. Second, the current implementation loads the full embedding table and language model head on every worker; these components account for roughly 150 MB in GPT-2 Medium and are unnecessary on non-boundary ranks. Together these two sources can plausibly account for the observed $\sim$300 MB gap between measured and analytically expected per-node weight memory at 4 nodes. A controlled ablation---stripping embeddings from non-boundary workers and measuring the RSS delta---would confirm this attribution, but is left for future work.
 
-Future work should focus on code and infrastructure optimization: replacing the synchronous HTTP request-response forwarding with asynchronous fire-and-forget messaging so that communication is truly unidirectional and pipeline stages can overlap, reducing transport overhead (binary protocols, tensor compression, or shared-memory/RDMA options), improving scheduling and batching at the gateway, minimizing Python serialization overhead, and re-running the same protocol on larger models and stronger hardware to test whether conclusions change at greater scale.
+\section{Conclusion}
+This project demonstrates an end-to-end distributed LLM inference prototype using layer-wise pipeline partitioning over HTTP in a CPU-only environment. The implementation successfully supports 1/2/4-node sharding, detailed telemetry, and reproducible benchmarking. Communication and serialization overhead dominate benefits from parallel stage compute: single-request latency increases with node count across all prompt lengths, higher concurrency narrows but does not reverse the throughput gap, and per-node memory does not decrease proportionally with layer count due to fixed Python/PyTorch runtime overhead and duplicated boundary components.
+
+Critically, we did not achieve the originally hoped throughput scaling with additional nodes under this setup. The study should be interpreted as a constrained but practical baseline rather than a final verdict on distributed inference, since unavailable high-bandwidth instance classes and timeout pressure prevented the originally intended larger-model evaluation. At larger model scales, the fixed per-process overhead identified here would represent a smaller fraction of total per-node memory, making it possible to cleanly test whether proportional memory reduction is achievable in practice.
+
+Future work should focus on replacing synchronous HTTP forwarding with asynchronous messaging so that pipeline stages can overlap, reducing transport overhead via binary protocols or tensor compression, and re-running the same protocol on larger models and stronger hardware to test whether conclusions change at greater scale.
 
 \begin{thebibliography}{9}
 
