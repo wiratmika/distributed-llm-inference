@@ -33,7 +33,7 @@ This work investigates a concrete systems question: \textit{for CPU-only inferen
 
 The implementation emphasizes observability. In addition to standard latency and throughput metrics, the system records per-node compute and serialization times, estimated network-hop delays, TTFT, and peak RSS memory. This instrumentation supports causal diagnosis (compute-bound vs. communication-bound regimes) instead of reporting aggregate latency alone.
 
-The implemented and benchmarked configuration uses GPT-2 Medium, node counts \{1,2,4\}, prompt lengths \{32,128,512\}, and concurrency levels \{1,2,3\}. GPT-2 Medium was selected to keep runs feasible and reproducible.
+The implemented and benchmarked configuration uses GPT-2 Medium, node counts \{1,2,4\}, prompt lengths \{32,128,512\}, and concurrency levels \{1,2,3\}.
 
 \section{Research Questions}
 The evaluation is organized around the following research questions:
@@ -55,7 +55,7 @@ Our approach differs in goal and scope: we intentionally study a simpler CPU-onl
 
 \section{Methodology}
 \subsection{System Architecture}
-The serving stack contains one gateway and multiple worker processes. The gateway accepts /generate requests, tokenizes prompts, and performs autoregressive decoding one token at a time. For each decoding step, it sends token IDs (for the initial prefill) to the rank-0 worker. That worker executes its layer shard and recursively forwards outputs through subsequent workers until the last stage returns logits to the gateway.
+The serving stack contains one gateway and multiple worker processes. The gateway accepts \texttt{/generate} requests, tokenizes prompts, and performs autoregressive decoding one token at a time. For each decoding step, it sends token IDs (for the initial prefill) to the rank-0 worker. That worker executes its layer shard and recursively forwards outputs through subsequent workers until the last stage returns logits to the gateway.
 
 Each worker hosts a ModelShard containing a contiguous slice of GPT-2 Medium transformer blocks. Partitioning is static and rank-based. For \(N\in\{1,2,4\}\), workers are pre-provisioned with corresponding rank and next-hop routing.
 
@@ -78,7 +78,7 @@ Two benchmark groups are implemented.
 \item \textbf{Scaling group:} nodes \(\in\{1,2,4\}\), input length \(\in\{32,128,512\}\), concurrency \(=1\).
 \item \textbf{Concurrency group:} nodes \(\in\{1,2,4\}\), input length \(=128\), concurrency \(\in\{1,2,3\}\).
 \end{itemize}
-All runs use GPT-2 Medium, generation length 50, warmup run, and repeated measurements written to JSON.
+All runs use GPT-2 Medium, generation length 50, one warmup run, and repeated measurements written to JSON.
 
 \section{Evaluation}
 \subsection{Platform and Setup}
