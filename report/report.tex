@@ -55,7 +55,7 @@ Our approach differs in goal and scope: we intentionally study a simpler CPU-onl
 
 \section{Methodology}
 \subsection{System Architecture}
-The serving stack contains one gateway and multiple worker processes. The gateway accepts \texttt{/generate} requests, tokenizes prompts, and performs autoregressive decoding one token at a time. For each decoding step, it sends token IDs (for the initial prefill) to the rank-0 worker. That worker executes its layer shard and recursively forwards outputs through subsequent workers until the last stage returns logits to the gateway.
+The serving stack contains one gateway and multiple worker processes. The gateway accepts client requests, tokenizes prompts, and performs autoregressive decoding one token at a time. For each decoding step, it sends token IDs (for the initial prefill) to the rank-0 worker. That worker executes its layer shard and recursively forwards outputs through subsequent workers until the last stage returns logits to the gateway.
 
 Each worker hosts a ModelShard containing a contiguous slice of GPT-2 Medium transformer blocks. Partitioning is static and rank-based. For \(N\in\{1,2,4\}\), workers are pre-provisioned with corresponding rank and next-hop routing.
 
