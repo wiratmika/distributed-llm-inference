@@ -1,10 +1,10 @@
 # Distributed LLM Inference Experiment
 
-This projects aims to implement CPU-only distributed inference for GPT-2 models using pipeline model parallelism over HTTP.
+This project implements CPU-only distributed inference for GPT-2 models using pipeline model parallelism over HTTP. Read the full research paper [here](./paper/paper.pdf).
 
 ## Background
 
-Many modern large language models (LLMs) contain billions of parameters. Due to its size, running inference using large models such as LLaMA 3.1 405B and Qwen2-72B may not be feasible with a single node, necessitating sharding across multiple nodes. This project aims to create a distributed inference system using open-weight models by partitioning the model layers across distributed nodes. The method proposed is distributed model parallelism. The core idea is to take a transformer-based model and split its layers across multiple machines.
+Many modern large language models (LLMs) contain billions of parameters. Due to their size, running inference on large models such as LLaMA 3.1 405B and Qwen2-72B is not feasible on a single node, necessitating sharding across multiple nodes. This project builds a distributed inference system using open-weight models by partitioning the model layers across distributed nodes. The method is layer-wise pipeline model parallelism: a transformer-based model is split across multiple machines, one contiguous shard of layers per node.
 
 <p align="center">
   <img src="./assets/layer-partitioning.svg" width="500">
@@ -22,9 +22,9 @@ Each node runs its chunk of the model on the input activations from a microbatch
   <sub><b>Figure 2:</b> Pipeline parallelism. Each microbatch is represented internally as a tensor of activations flowing between pipeline stages.</sub>
 </p>
 
-The primary goals of this study are to learn how to create such a system from scratch and benchmark the performance, scalability, and its trade-offs. Due to its distributed nature, the primary penalty is the latency caused by communication overhead between nodes. In addition, challenges arise from scheduling complexity, fault tolerance, straggler (slow) nodes, error propagation, and debugging.
+The primary goals of this study are to build such a system from scratch and benchmark its performance, scalability, and trade-offs. Due to its distributed nature, the primary penalty is latency caused by communication overhead between nodes. Additional challenges arise from scheduling complexity, fault tolerance, straggler (slow) nodes, error propagation, and debugging.
 
-The emphasis of this project are the benefits and trade-offs of distributed computing in model inference, and optimizing for maximum performance is not part of the design goal. Therefore, to simplify the deployment environment and save costs, the model will run using CPU only and will not utilize any GPU. By not requiring a GPU, the setup can be easily replicated with generic cloud virtual machines.
+The emphasis is on the benefits and trade-offs of distributed computing in model inference; optimizing for peak performance is not a design goal. To simplify the deployment environment and save costs, the system runs on CPU only and does not utilize any GPU. By not requiring a GPU, the setup can be easily replicated on generic cloud virtual machines.
 
 <p align="center">
   <img src="./assets/system-architecture.svg" width="500">
@@ -33,11 +33,76 @@ The emphasis of this project are the benefits and trade-offs of distributed comp
   <sub><b>Figure 3:</b> System architecture overview.</sub>
 </p>
 
-With that constraint in mind, this study is using GPT-2 family models. It has simple, well-understood architecture making it simple enough to understand every component but complex enough to reveal real distributed systems challenges. There are also non-technical practical benefits, such as its mature ecosystem with excellent documentation and permissive license (MIT).
+With that constraint in mind, the study uses the GPT-2 family of models. Its architecture is simple and well-understood, making every component tractable to reason about while still surfacing real distributed systems challenges. There are also practical benefits: a mature ecosystem, excellent documentation, and a permissive license (MIT).
 
-Specifically, the proof-of-concept will use GPT-2 Small to build the infrastructure and validate the architecture works before scaling. It has 124M parameters and 12 layers that are easy to split, test, and runs very fast even on CPU. Eventually, the experiment will use GPT-2 XL, as the size is large enough that distributed inference makes sense in that it will not fit easily in a single CPU memory with full context. At 1.5B parameters and 48 layers, the size will see real benefits from sharding without needing excessive infrastructure.
+The final benchmarks were run on GPT-2 Medium (355M parameters, 24 transformer blocks). The original plan targeted GPT-2 XL (1.5B, 48 blocks) to more strongly test the memory-pressure benefits of sharding, but high-memory-bandwidth CPU instances were not available under the project's cloud account, and large-model distributed runs hit frequent end-to-end timeouts. Scoping down to GPT-2 Medium preserved the full factor-based experiment design (node scaling, input-length scaling, concurrency scaling) within feasible runtime and budget limits.
 
-Inter-process communications is using HTTP as the overhead is extremely small compared to the inference latency.
+Inter-process communication uses HTTP, as its overhead is small relative to CPU inference latency and keeps the implementation portable.
+
+## Research Highlights
+
+The project implements a full gateway-worker serving stack for GPT-2 Medium (355M) with contiguous layer sharding across 1, 2, and 4 nodes. Benchmarks span 15 configurations covering prompt lengths (32, 128, 512) and client concurrency (1, 2, 3) on Google Cloud `c4d-highmem-2` VMs, with per-stage compute, serialization, network hop time, memory, TTFT, and end-to-end latency instrumented at the gateway and every worker.
+
+### Key Finding 1 — Communication overhead dominates CPU pipeline parallelism
+
+Single-request latency grows consistently with node count across every prompt length. Relative to a single node, **4-node latency increases by 60–77%**, and TTFT follows the same trend.
+
+<p align="center">
+  <img src="./paper/charts/1-latency-node-count.jpg" width="45%">
+  <img src="./paper/charts/2-ttft-node-count.jpg" width="45%">
+</p>
+<p align="center">
+  <sub><b>Figure 4:</b> End-to-end latency and time-to-first-token (TTFT) vs. node count.</sub>
+</p>
+
+### Key Finding 2 — Network share grows from ~17% to ~52% of wall-clock time
+
+Decomposing wall-clock time into compute, serialization, network, and residual components reveals the regime shift: at 1 node the system is compute-bound (68–77% compute), while at 4 nodes it becomes communication-bound (45–52% network). This is a quantitative causal diagnosis rather than a latency number alone.
+
+<p align="center">
+  <img src="./paper/charts/3-time-share-breakdown.jpg" width="500">
+</p>
+<p align="center">
+  <sub><b>Figure 5:</b> Wall-clock time-share decomposition across configurations.</sub>
+</p>
+
+### Key Finding 3 — Concurrency narrows but does not close the throughput gap
+
+Throughput at input length 128 (tokens/s):
+
+| Concurrency | 1 node | 2 nodes | 4 nodes |
+|---|---|---|---|
+| 1 | **0.526** | 0.413 | 0.297 |
+| 2 | **0.540** | 0.440 | 0.355 |
+| 3 | **0.536** | 0.507 | 0.487 |
+
+Higher concurrency partially reclaims pipeline utilization (the 4-node deficit shrinks from -43.5% to -9.1%), but never overcomes serialization and HTTP transport costs in this setup.
+
+<p align="center">
+  <img src="./paper/charts/4-throughput-concurrency.jpg" width="500">
+</p>
+<p align="center">
+  <sub><b>Figure 6:</b> Throughput vs. concurrency at input length 128.</sub>
+</p>
+
+### Key Finding 4 — Per-node memory does not scale linearly with shards
+
+At 4 nodes, per-worker peak RSS stays near 2,400 MB while hosting only 6 of 24 transformer blocks, versus 2,500 MB for the full-model single-node run. Two compounding factors explain this: a fixed ~300–400 MB Python/PyTorch runtime baseline per process, and duplicated embedding + LM head tensors (~150 MB) loaded on every worker instead of just the boundary ranks.
+
+<p align="center">
+  <img src="./paper/charts/5-per-node-peak-rss.jpg" width="500">
+</p>
+<p align="center">
+  <sub><b>Figure 7:</b> Per-node peak RSS across 1, 2, and 4 nodes.</sub>
+</p>
+
+### Takeaways
+
+- Synchronous HTTP/JSON activation transport is the dominant cost in this setup. Asynchronous messaging or binary protocols are a natural next step.
+- Memory savings from sharding only appear once the model is large enough to amortize per-process runtime overhead, so the same protocol would need to be re-run on larger models and higher-bandwidth hardware to see the expected benefit.
+- Per-stage instrumentation was necessary to separate compute-bound from communication-bound regimes; aggregate latency alone does not distinguish the two.
+
+Full methodology and results tables are available [here](./paper/paper.pdf).
 
 ## Local Installation
 
